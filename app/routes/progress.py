@@ -6,6 +6,7 @@ Strength is tracked with the Epley estimated one-rep max:
 import html
 
 from flask import Blueprint, jsonify
+from sqlalchemy import or_
 
 from app import db
 from app.lifting import est_1rm
@@ -15,12 +16,21 @@ progress_bp = Blueprint("progress", __name__)
 
 
 def _weighted_logs(exercise_id):
-    """All checked, weighted set logs for an exercise, oldest first."""
+    """All checked, weighted set logs for an exercise, oldest first.
+
+    Covers check-off logs (exercise via their planned set) and free-form
+    live logs (exercise_id on the row).
+    """
     return (
-        SetLog.query.join(PlannedSet, SetLog.planned_set_id == PlannedSet.id)
+        SetLog.query.outerjoin(
+            PlannedSet, SetLog.planned_set_id == PlannedSet.id
+        )
         .join(WorkoutSession, SetLog.session_id == WorkoutSession.id)
         .filter(
-            PlannedSet.exercise_id == exercise_id,
+            or_(
+                SetLog.exercise_id == exercise_id,
+                PlannedSet.exercise_id == exercise_id,
+            ),
             SetLog.checked.is_(True),
             SetLog.actual_weight_lb.isnot(None),
         )

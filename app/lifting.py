@@ -1,5 +1,7 @@
 """Strength math: Epley 1RM estimates and all-time PR detection."""
 
+from sqlalchemy import or_
+
 
 def est_1rm(weight_lb, reps):
     """Epley estimated one-rep max, rounded to 1 decimal.
@@ -17,7 +19,9 @@ def is_pr_for_set(log, exercise_id, exclude_id=None):
     """True when this checked set's est-1RM exceeds every other checked,
     weighted set ever logged for the same exercise.
 
-    The first-ever logged set for an exercise counts as a PR. Unchecked sets
+    Covers both check-off logs (exercise via their planned set) and
+    free-form live logs (exercise_id set directly on the row). The
+    first-ever logged set for an exercise counts as a PR. Unchecked sets
     and sets without a weight are ignored on both sides.
     """
     # Local import: app.models imports `db` from the app package, and this
@@ -29,9 +33,13 @@ def is_pr_for_set(log, exercise_id, exclude_id=None):
     mine = est_1rm(log.actual_weight_lb, log.actual_reps)
 
     query = (
-        SetLog.query.join(PlannedSet, SetLog.planned_set_id == PlannedSet.id)
-        .filter(
-            PlannedSet.exercise_id == exercise_id,
+        SetLog.query.outerjoin(
+            PlannedSet, SetLog.planned_set_id == PlannedSet.id
+        ).filter(
+            or_(
+                SetLog.exercise_id == exercise_id,
+                PlannedSet.exercise_id == exercise_id,
+            ),
             SetLog.checked.is_(True),
             SetLog.actual_weight_lb.isnot(None),
         )
