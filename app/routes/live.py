@@ -38,6 +38,10 @@ flex-direction:column;gap:.2rem}
 min-width:4.2rem}
 a{color:#2563eb}
 .meta{color:#6b7280;font-size:.9rem}
+.thumb{width:42px;height:42px;border:1px solid #e5e7eb;border-radius:8px;
+background:#fff;flex:none;cursor:zoom-in}
+.thumb.big{width:150px;height:150px;cursor:zoom-out}
+.exname{display:flex;align-items:center;gap:.6rem;flex:1;min-width:0}
 </style>"""
 
 
@@ -204,9 +208,14 @@ function render(data){{
         <a href="#" onclick="delSet(${{l.id}});return false;"
           style="color:#9ca3af;font-size:.8rem">del</a></div>`;
     }}).join("");
+    const thumb = g.illustration_url
+      ? `<img class="thumb" src="${{g.illustration_url}}"
+          alt="exercise illustration" loading="lazy"
+          onclick="event.stopPropagation();this.classList.toggle('big')">`
+      : "";
     div.innerHTML = `
       <div class="exhead" onclick="this.parentNode.classList.toggle('open')">
-        <span>${{esc(g.exercise_name)}}</span>
+        <span class="exname">${{thumb}}<span>${{esc(g.exercise_name)}}</span></span>
         <span class="meta">${{g.logged.length}} logged</span>
       </div>
       <div class="exbody">

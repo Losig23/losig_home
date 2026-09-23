@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify
 from sqlalchemy import or_
 
 from app import db
+from app.illustrations import url_for_exercise
 from app.lifting import est_1rm
 from app.models import Exercise, PlannedSet, RoutineDay, SetLog, WorkoutSession
 
@@ -258,6 +259,11 @@ td,th{border:1px solid #e5e7eb;padding:.4rem .8rem;text-align:left}
 def render_exercise_page(exercise, progress):
     name = html.escape(exercise.name)
     summary = progress["summary"]
+    illus = (
+        f'<img src="{url_for_exercise(exercise)}" alt="{name} illustration" '
+        f'style="float:right;width:110px;height:110px;border:1px solid '
+        f'#e5e7eb;border-radius:10px;background:#fff">'
+    )
 
     if not progress["series"]:
         body = ("<p>No logged sets yet. Check off a session with actual "
@@ -297,6 +303,7 @@ def render_exercise_page(exercise, progress):
 <html lang="en"><head><meta charset="utf-8">
 <title>{name} — Progress</title>{PAGE_STYLE}</head><body>
 <p><a href="/progress">← all exercises</a></p>
+{illus}
 <h1>{name} <span style="color:#6b7280;font-size:1rem">progress</span></h1>
 {body}
 </body></html>"""
@@ -349,6 +356,7 @@ def api_exercise_progress(exercise_id):
                 "name": exercise.name,
                 "day_number": exercise.day.day_number,
                 "day_name": exercise.day.name,
+                "illustration_url": url_for_exercise(exercise),
             },
             **progress,
         }

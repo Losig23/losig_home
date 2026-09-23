@@ -6,6 +6,7 @@ is the target rep count for that set; a bare number is weight only.
 """
 import re
 from app import db
+from app.illustrations import slug_for
 from app.models import Exercise, PlannedSet, RoutineDay
 
 SET_RE = re.compile(r"^(\d+(?:\.\d+)?)(?:\((\d+)\))?$")
@@ -25,7 +26,8 @@ def parse_sets(spec):
 
 
 def slug(name):
-    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    """Seed-time slug; implementation lives in app.illustrations."""
+    return slug_for(name)
 
 
 # (day_number, day name, [(intensity, name, raw_label, sets_spec, set_note)])

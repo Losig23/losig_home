@@ -1,5 +1,6 @@
 """SQLAlchemy models for the losig_home workout tracker."""
 from app import db
+from app.illustrations import url_for_exercise
 
 
 class RoutineDay(db.Model):
@@ -49,6 +50,7 @@ class Exercise(db.Model):
             "position": self.position,
             "intensity": self.intensity,
             "illustration_key": self.illustration_key,
+            "illustration_url": url_for_exercise(self),
             "sets": [s.to_dict() for s in self.planned_sets],
         }
 
@@ -128,6 +130,7 @@ class WorkoutSession(db.Model):
                 groups[ex.id] = {
                     "exercise_id": ex.id,
                     "exercise_name": ex.name,
+                    "illustration_url": url_for_exercise(ex),
                     "planned": [s.to_dict() for s in ex.planned_sets],
                     "logged": [],
                 }
@@ -141,6 +144,7 @@ class WorkoutSession(db.Model):
                 groups[eid] = {
                     "exercise_id": eid,
                     "exercise_name": ex.name if ex else "Unknown",
+                    "illustration_url": url_for_exercise(ex) if ex else None,
                     "planned": [],
                     "logged": [],
                 }
