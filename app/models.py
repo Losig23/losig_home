@@ -169,3 +169,53 @@ class TravelSession(db.Model):
             "situps": self.situps,
             "notes": self.notes,
         }
+
+
+class BodyWeightLog(db.Model):
+    """Daily scale weigh-ins (body weight in lb — not lift weights)."""
+
+    __tablename__ = "body_weight_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, unique=True, nullable=False)
+    weight_lb = db.Column(db.REAL, nullable=False)
+    note = db.Column(db.Text, nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date.isoformat(),
+            "weight_lb": self.weight_lb,
+            "note": self.note,
+        }
+
+
+class MealLog(db.Model):
+    """Food log: photo + description + calorie/macro estimate."""
+
+    __tablename__ = "meal_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    photo_path = db.Column(db.String(255), nullable=True)  # relative to instance/
+    description = db.Column(db.Text, nullable=False)
+    calories = db.Column(db.REAL, nullable=True)
+    protein_g = db.Column(db.REAL, nullable=True)
+    carbs_g = db.Column(db.REAL, nullable=True)
+    fat_g = db.Column(db.REAL, nullable=True)
+    logged_at = db.Column(db.DateTime, nullable=False)
+    source = db.Column(db.String(20), nullable=False, default="manual")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "photo_url": (
+                f"/api/meals/{self.id}/photo" if self.photo_path else None
+            ),
+            "description": self.description,
+            "calories": self.calories,
+            "protein_g": self.protein_g,
+            "carbs_g": self.carbs_g,
+            "fat_g": self.fat_g,
+            "logged_at": self.logged_at.isoformat(),
+            "source": self.source,
+        }

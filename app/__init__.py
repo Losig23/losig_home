@@ -23,9 +23,13 @@ def create_app(config_overrides=None):
 
     db.init_app(app)
 
+    from app.routes.bodyweight import bodyweight_bp
+    from app.routes.meals import meals_bp
     from app.routes.routine import routine_bp
     from app.routes.workout import workout_bp
 
+    app.register_blueprint(bodyweight_bp)
+    app.register_blueprint(meals_bp)
     app.register_blueprint(routine_bp)
     app.register_blueprint(workout_bp)
 
