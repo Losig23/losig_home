@@ -4,6 +4,7 @@ from datetime import date
 from flask import Blueprint, jsonify, request
 
 from app import db
+from app.lifting import is_pr_for_set
 from app.models import PlannedSet, RoutineDay, SetLog, TravelSession, WorkoutSession
 
 workout_bp = Blueprint("workout", __name__, url_prefix="/api")
@@ -73,6 +74,7 @@ def check_sets(session_id):
         return jsonify({"error": "'checks' must be a list"}), 400
 
     updated = 0
+    set_results = []
     for item in checks:
         planned_set_id = item.get("planned_set_id")
         if planned_set_id not in valid_ids:
@@ -92,6 +94,19 @@ def check_sets(session_id):
             log.actual_reps = item["actual_reps"]
         if "actual_weight_lb" in item:
             log.actual_weight_lb = item["actual_weight_lb"]
+        # Flush so the row has an id before PR comparison, and so sets
+        # earlier in this same request count as "prior" for later ones.
+        db.session.flush()
+        planned_set = db.session.get(PlannedSet, planned_set_id)
+        if log.checked:
+            log.is_pr = is_pr_for_set(
+                log, planned_set.exercise_id, exclude_id=log.id
+            )
+        else:
+            log.is_pr = False
+        set_results.append(
+            {"planned_set_id": planned_set_id, "is_pr": bool(log.is_pr)}
+        )
         updated += 1
 
     session.completed_pct = session.compute_completion_pct()
@@ -100,6 +115,7 @@ def check_sets(session_id):
         "session_id": session.id,
         "updated": updated,
         "completed_pct": session.completed_pct,
+        "sets": set_results,
     })
 
 

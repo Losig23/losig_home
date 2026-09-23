@@ -139,6 +139,9 @@ class SetLog(db.Model):
     checked = db.Column(db.Boolean, default=False, nullable=False)
     actual_reps = db.Column(db.Integer, nullable=True)
     actual_weight_lb = db.Column(db.REAL, nullable=True)
+    # Persisted at check-off time: this set beat every prior logged set's
+    # est-1RM for the exercise (see app/lifting.py).
+    is_pr = db.Column(db.Boolean, default=False, nullable=False)
 
     planned_set = db.relationship("PlannedSet")
 
@@ -149,6 +152,7 @@ class SetLog(db.Model):
             "checked": self.checked,
             "actual_reps": self.actual_reps,
             "actual_weight_lb": self.actual_weight_lb,
+            "is_pr": self.is_pr,
         }
 
 

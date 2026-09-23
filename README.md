@@ -58,6 +58,25 @@ pytest
 | GET | `/api/meals?date=YYYY-MM-DD` | meals for a day (defaults to today) |
 | GET | `/api/meals/daily?date=YYYY-MM-DD` | day totals: calories, protein, carbs, fat, meal count |
 | GET | `/api/meals/<id>/photo` | serve the meal's photo |
+| GET | `/api/exercises/<id>/progress` | per-session series (top set, est 1RM, volume), summary (current/first est 1RM, all-time PR, delta, session count), PR dates |
+| PATCH | `/api/sessions/<id>/check` | now also returns per-set `is_pr` flags and persists them on `set_log` |
+
+### Progressive overload
+
+`/progress` lists all exercises grouped by day with the latest Epley est-1RM
+and a sparkline; `/exercises/<id>/progress` renders the est-1RM curve with
+gold ★ markers on PR sessions, stat cards (current est 1RM, all-time PR
+weight×reps, change since first session, session count), and a session table.
+
+Strength is estimated with the Epley formula:
+
+```
+est_1rm = weight_lb × (1 + reps / 30)
+```
+
+computed on each session's best set. A set is flagged `is_pr` when its
+est-1RM beats every prior logged set for that exercise (the first-ever logged
+set counts).
 
 ### Bodyweight chart
 
@@ -91,7 +110,8 @@ used instead (`source` is `"manual"` vs `"nutritionix"` on the meal record).
   stick-figure drawings
 - `planned_set` — weight_lb, target_reps, note per set
 - `workout_session` — date, day, travel_mode flag, completed_pct
-- `set_log` — per-set check-offs with optional actual reps/weight
+- `set_log` — per-set check-offs with optional actual reps/weight; `is_pr`
+  flags sets that beat the exercise's all-time est-1RM at check-off time
 - `travel_session` — date, pushups, situps, notes
 - `body_weight_log` — date (unique), weight_lb, note
 - `meal_log` — photo_path (under `instance/uploads/meals/`), description,
@@ -103,6 +123,9 @@ used instead (`source` is `"manual"` vs `"nutritionix"` on the meal record).
   for calories/macros; manual entry when keys are absent
 - [x] **Daily bodyweight tracking** — upsert weigh-ins, 7-day avg / 30-day
   delta / trend stats, server-rendered SVG trend chart at `/bodyweight`
+- [x] **Progressive overload** — per-exercise est-1RM (Epley) series +
+  volume, PR detection with `is_pr` flags, SVG charts at `/progress` and
+  `/exercises/<id>/progress`
 - [ ] **Exercise illustrations** — line-drawn SVG per `illustration_key`, set
   checkmarks in the UI, daily completion %
 - [ ] **Media aggregator** — scheduled pulls from Steam/PSN/YouTube/Last.fm/
