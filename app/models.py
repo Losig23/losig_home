@@ -226,6 +226,22 @@ class TravelSession(db.Model):
     situps = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
 
+    sets = db.relationship(
+        "TravelSet",
+        backref="session",
+        cascade="all, delete-orphan",
+        order_by="TravelSet.id",
+    )
+
+    def sets_by_movement(self):
+        """Per-set logs grouped by movement (for the per-set logging UI)."""
+        return {
+            movement: [
+                s.to_dict() for s in self.sets if s.movement == movement
+            ]
+            for movement in ("pushup", "situp")
+        }
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -233,6 +249,38 @@ class TravelSession(db.Model):
             "pushups": self.pushups,
             "situps": self.situps,
             "notes": self.notes,
+            "sets": [s.to_dict() for s in self.sets],
+        }
+
+
+class TravelSet(db.Model):
+    """Per-set travel log: push-up/sit-up sets with rest, mirroring SetLog.
+
+    The aggregate pushups/situps columns on TravelSession stay untouched —
+    per-set rows are the finer-grained layer used by the travel analyzer.
+    """
+
+    __tablename__ = "travel_set"
+
+    id = db.Column(db.Integer, primary_key=True)
+    travel_session_id = db.Column(
+        db.Integer, db.ForeignKey("travel_session.id"), nullable=False
+    )
+    # 1-based position within the movement+session, for live logging.
+    set_number = db.Column(db.Integer, nullable=True)
+    movement = db.Column(db.String(10), nullable=False)  # 'pushup' | 'situp'
+    reps = db.Column(db.Integer, nullable=True)
+    # Rest taken BEFORE this set, in seconds.
+    rest_seconds = db.Column(db.Integer, nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "travel_session_id": self.travel_session_id,
+            "set_number": self.set_number,
+            "movement": self.movement,
+            "reps": self.reps,
+            "rest_seconds": self.rest_seconds,
         }
 
 

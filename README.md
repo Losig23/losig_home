@@ -53,7 +53,12 @@ pytest
 | GET | `/api/travel` | recent travel logs |
 | GET | `/api/travel/stats` | travel totals, per-day averages, best day, day count, first/latest date |
 | GET | `/api/travel/series` | per-day aggregated push-ups/sit-ups, oldest first (same-day logs summed) |
-| GET | `/travel` | chart page: grouped-bar SVG (push-ups vs sit-ups per day), stat cards, quick log form, history table |
+| GET | `/travel` | chart page: grouped-bar SVG (push-ups vs sit-ups per day), stat cards, analyzer verdict badges, aggregate quick-log form, per-set logging UI with rest timer, history table |
+| POST | `/api/travel/<session_id>/sets` | log a push-up/sit-up set live: `{"movement": "pushup", "reps": 20, "rest_seconds": 60}` — `set_number` auto-increments per movement |
+| PATCH | `/api/travel/sets/<set_id>` | fix a logged travel set: `{"reps": 22, "rest_seconds": 75, "movement": "situp"}` |
+| DELETE | `/api/travel/sets/<set_id>` | delete a logged travel set |
+| GET | `/api/travel/<session_id>` | travel day detail: aggregates + sets grouped by movement |
+| GET | `/api/travel/analysis` | per-movement verdicts (progressing/plateau/regressing/insufficient_data) from the slope of per-day total reps, plus rest insights |
 | POST | `/api/bodyweight` | log a weigh-in (upsert by date): `{"date": "2026-09-23", "weight_lb": 185.4, "note": "..."}` |
 | GET | `/api/bodyweight` | weigh-in history, oldest first; `?from=…&to=…` filters |
 | GET | `/api/bodyweight/stats` | latest weight, 7-day avg, 30-day delta, trend (up/down/flat), log count |
@@ -122,6 +127,33 @@ Live-logged sets feed the same progress series and PR detection as check-offs
 
 `GET /api/analysis` returns the same per exercise as JSON.
 
+### Travel per-set logging + analyzer
+
+Travel days get the same live-logging treatment as the gym: pick a travel
+day (or create one) on the `/travel` page and log each push-up/sit-up set
+with the rest you took before it — the count-up rest timer auto-fills the
+rest field, same pattern as `/log`.
+
+`GET /api/travel/analysis` judges each movement separately:
+
+- **Verdict** — least-squares slope of per-day *total* reps over the last 8
+  travel days (needs ≥ 3 days): `progressing` above +1.0 reps/day,
+  `regressing` below −1.0 reps/day, otherwise `plateau`. Only days where the
+  movement was actually performed (total > 0) count — a push-ups-only day is
+  not a "0 sit-up day" in the sit-up trend.
+- **Per-set precedence** — if a date has any per-set rows for a movement,
+  the day's total is their sum (the aggregate columns are ignored for that
+  movement). Movements/dates without per-set rows fall back to the aggregate
+  `pushups`/`situps` columns, so days logged before this feature still count.
+- **Rest insight** — compares average rest before high-rep sets (top
+  quartile) vs low-rep sets (bottom quartile). Needs ≥ 4 sets with recorded
+  rests and a ≥ 15 s gap; e.g. *"Your highest-rep pushup sets average 60s
+  longer rests (90s vs 30s) — consider resting longer before hard sets."*
+
+The `/travel` page shows the verdict badges next to the stat cards and a
+per-day "Log sets" section (movement toggle, reps input, rest timer, logged
+sets with delete). The aggregate quick-log form keeps working unchanged.
+
 ### Bodyweight chart
 
 `/bodyweight` is a plain server-rendered page (no JS frameworks): an inline
@@ -159,6 +191,8 @@ used instead (`source` is `"manual"` vs `"nutritionix"` on the meal record).
   free-form live logs set `exercise_id` directly (`planned_set_id` NULL) with
   `set_number` and `rest_seconds` (rest taken before the set)
 - `travel_session` — date, pushups, situps, notes
+- `travel_set` — travel_session_id, movement (`pushup`/`situp`), set_number
+  (1-based within movement+session), reps, rest_seconds (rest before the set)
 - `body_weight_log` — date (unique), weight_lb, note
 - `meal_log` — photo_path (under `instance/uploads/meals/`), description,
   calories/protein_g/carbs_g/fat_g, logged_at, source (nutritionix/manual)
@@ -174,7 +208,9 @@ used instead (`source` is `"manual"` vs `"nutritionix"` on the meal record).
   `/exercises/<id>/progress`
 - [x] **Travel workout tracking** — push-up/sit-up totals, per-day averages,
   best day, aggregated per-day series, grouped-bar SVG chart at `/travel`
-  with a quick log form
+  with a quick log form; per-set logging with rest timer +
+  per-movement analyzer verdicts (progressing/plateau/regressing) and rest
+  insights at `/api/travel/analysis`
 - [x] **Live set logging + rest timer + analyzer** — log weight/reps/rest per
   set as you work out from the phone-friendly `/log` page (per-exercise
   count-up rest timer, PR stars); `/api/analysis` + `/analysis` judge
