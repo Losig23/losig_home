@@ -50,6 +50,9 @@ pytest
 | PATCH | `/api/sessions/<id>/check` | check off sets: `{"checks": [{"planned_set_id": 3, "checked": true, "actual_reps": 12, "actual_weight_lb": 45}]}` |
 | POST | `/api/travel` | log a travel workout: `{"date": "2026-09-23", "pushups": 60, "situps": 50, "notes": "..."}` |
 | GET | `/api/travel` | recent travel logs |
+| GET | `/api/travel/stats` | travel totals, per-day averages, best day, day count, first/latest date |
+| GET | `/api/travel/series` | per-day aggregated push-ups/sit-ups, oldest first (same-day logs summed) |
+| GET | `/travel` | chart page: grouped-bar SVG (push-ups vs sit-ups per day), stat cards, quick log form, history table |
 | POST | `/api/bodyweight` | log a weigh-in (upsert by date): `{"date": "2026-09-23", "weight_lb": 185.4, "note": "..."}` |
 | GET | `/api/bodyweight` | weigh-in history, oldest first; `?from=…&to=…` filters |
 | GET | `/api/bodyweight/stats` | latest weight, 7-day avg, 30-day delta, trend (up/down/flat), log count |
@@ -126,6 +129,9 @@ used instead (`source` is `"manual"` vs `"nutritionix"` on the meal record).
 - [x] **Progressive overload** — per-exercise est-1RM (Epley) series +
   volume, PR detection with `is_pr` flags, SVG charts at `/progress` and
   `/exercises/<id>/progress`
+- [x] **Travel workout tracking** — push-up/sit-up totals, per-day averages,
+  best day, aggregated per-day series, grouped-bar SVG chart at `/travel`
+  with a quick log form
 - [ ] **Exercise illustrations** — line-drawn SVG per `illustration_key`, set
   checkmarks in the UI, daily completion %
 - [ ] **Media aggregator** — scheduled pulls from Steam/PSN/YouTube/Last.fm/
