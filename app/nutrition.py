@@ -1,47 +1,49 @@
-"""Nutritionix natural-language nutrition estimates.
+"""CalorieNinjas (API Ninjas) natural-language nutrition estimates.
 
-Reads NUTRITIONIX_APP_ID / NUTRITIONIX_API_KEY from the environment — never
-hardcode keys. Returns None when the API can't produce an estimate so the
-caller can fall back to manually entered macros.
+Reads API_NINJAS_KEY from the environment — never hardcode keys. Returns
+None when the API can't produce an estimate so the caller can fall back to
+manually entered macros.
+
+Note: Nutritionix was the original provider, but it ended free public
+trials (API access is now sales-gated), so the food module uses API Ninjas'
+free tier instead. Sign up with any email at https://api-ninjas.com.
 """
 import json
+import urllib.parse
 import urllib.request
 
-API_URL = "https://trackapi.nutritionix.com/v2/natural/nutrients"
+API_URL = "https://api.api-ninjas.com/v1/nutrition"
 
 
-def estimate_nutrition(description, app_id, api_key, timeout=15):
+def estimate_nutrition(description, api_key, timeout=15):
     """Estimate calories/macros for a free-text meal description.
 
-    Returns {"calories", "protein_g", "carbs_g", "fat_g"} summed across the
-    foods Nutritionix identifies, or None on any failure.
+    Returns {"calories", "protein_g", "carbs_g", "fat_g"} summed across all
+    items the API identifies, or None on any failure: missing key, network
+    error, non-200 status, or an empty/unparseable response.
     """
-    payload = json.dumps({"query": description}).encode("utf-8")
-    req = urllib.request.Request(
-        API_URL,
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "x-app-id": app_id,
-            "x-app-key": api_key,
-        },
-    )
+    if not api_key:
+        return None
+
+    url = f"{API_URL}?{urllib.parse.urlencode({'query': description})}"
+    req = urllib.request.Request(url, headers={"X-Api-Key": api_key})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if getattr(resp, "status", 200) != 200:
+                return None
             data = json.load(resp)
     except Exception:
         return None
 
-    foods = data.get("foods") or []
-    if not foods:
+    if not isinstance(data, list) or not data:
         return None
 
     def _total(key):
-        return round(sum(float(f.get(key) or 0) for f in foods), 1)
+        return round(sum(float(item.get(key) or 0) for item in data), 1)
 
     return {
-        "calories": _total("nf_calories"),
-        "protein_g": _total("nf_protein"),
-        "carbs_g": _total("nf_total_carbohydrate"),
-        "fat_g": _total("nf_total_fat"),
+        "calories": _total("calories"),
+        "protein_g": _total("protein_g"),
+        "carbs_g": _total("carbohydrates_total_g"),
+        "fat_g": _total("fat_total_g"),
     }

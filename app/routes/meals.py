@@ -53,17 +53,16 @@ def _save_photo(file_storage):
 
 
 def _estimate_macros(description, manual):
-    """Nutritionix when keys are configured, else manual values.
+    """CalorieNinjas when the API key is configured, else manual values.
 
     Returns (macros_dict, source). Never raises for API problems — falls
     back to manual with source="manual".
     """
-    app_id = os.environ.get("NUTRITIONIX_APP_ID")
-    api_key = os.environ.get("NUTRITIONIX_API_KEY")
-    if app_id and api_key:
-        result = estimate_nutrition(description, app_id, api_key)
+    api_key = os.environ.get("API_NINJAS_KEY")
+    if api_key:
+        result = estimate_nutrition(description, api_key)
         if result is not None:
-            return result, "nutritionix"
+            return result, "calorieninjas"
     return manual, "manual"
 
 

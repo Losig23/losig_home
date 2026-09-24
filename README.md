@@ -205,16 +205,18 @@ Meal photos are stored under `instance/uploads/meals/` (gitignored — runtime
 data, not committed; on Render attach a persistent disk for this path).
 Photos are capped at 10MB and must be png/jpg/webp/gif.
 
-Calorie/macro estimates come from the [Nutritionix](https://www.nutritionix.com/business/api)
-natural-language API (free tier). Set these env vars (or a local `.env`):
+Calorie/macro estimates come from the [CalorieNinjas](https://api-ninjas.com/api/nutrition)
+natural-language API (free tier — sign up with any email at
+[api-ninjas.com](https://api-ninjas.com)). Set this env var (or a local
+`.env`):
 
 ```bash
-NUTRITIONIX_APP_ID=your_app_id
-NUTRITIONIX_API_KEY=your_api_key
+API_NINJAS_KEY=your_api_key
 ```
 
-Without keys, the API call is skipped and any manually provided macros are
-used instead (`source` is `"manual"` vs `"nutritionix"` on the meal record).
+Without the key, the API call is skipped and any manually provided macros
+are used instead (`source` is `"manual"` vs `"calorieninjas"` on the meal
+record).
 
 ## Data model
 
@@ -234,12 +236,12 @@ used instead (`source` is `"manual"` vs `"nutritionix"` on the meal record).
   (1-based within movement+session), reps, rest_seconds (rest before the set)
 - `body_weight_log` — date (unique), weight_lb, note
 - `meal_log` — photo_path (under `instance/uploads/meals/`), description,
-  calories/protein_g/carbs_g/fat_g, logged_at, source (nutritionix/manual)
+  calories/protein_g/carbs_g/fat_g, logged_at, source (calorieninjas/manual)
 
 ## Roadmap
 
-- [x] **Food log** — photo upload + short description → Nutritionix (free tier)
-  for calories/macros; manual entry when keys are absent
+- [x] **Food log** — photo upload + short description → CalorieNinjas (free tier)
+  for calories/macros; manual entry when the key is absent
 - [x] **Daily bodyweight tracking** — upsert weigh-ins, 7-day avg / 30-day
   delta / trend stats, server-rendered SVG trend chart at `/bodyweight`
 - [x] **Progressive overload** — per-exercise est-1RM (Epley) series +

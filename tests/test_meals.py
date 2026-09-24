@@ -25,9 +25,8 @@ def _clean_uploads(app):
 
 
 @pytest.fixture(autouse=True)
-def _no_nutritionix_keys(monkeypatch):
-    monkeypatch.delenv("NUTRITIONIX_APP_ID", raising=False)
-    monkeypatch.delenv("NUTRITIONIX_API_KEY", raising=False)
+def _no_nutrition_key(monkeypatch):
+    monkeypatch.delenv("API_NINJAS_KEY", raising=False)
 
 
 def _upload(client, **fields):
@@ -49,7 +48,7 @@ def test_upload_with_photo_round_trip(client, app):
     )
     assert resp.status_code == 201
     meal = resp.get_json()
-    assert meal["source"] == "manual"  # no Nutritionix keys in env
+    assert meal["source"] == "manual"  # no API key in env
     assert meal["calories"] == 650.0
     assert meal["protein_g"] == 40.0
     assert meal["photo_url"] is not None
@@ -121,29 +120,8 @@ def test_daily_totals(client):
     assert other["calories"] == 0
 
 
-def test_nutritionix_failure_returns_none(monkeypatch):
-    from app.nutrition import estimate_nutrition
-
-    def boom(*args, **kwargs):
-        raise urllib.request.URLError("no network")
-
-    monkeypatch.setattr(urllib.request, "urlopen", boom)
-    assert estimate_nutrition("2 eggs", "id", "key") is None
-
-
-def test_nutritionix_success_sums_foods(monkeypatch):
+def _fake_response(payload, status=200):
     import json as jsonlib
-
-    from app.nutrition import estimate_nutrition
-
-    payload = {
-        "foods": [
-            {"nf_calories": 100, "nf_protein": 6,
-             "nf_total_carbohydrate": 1, "nf_total_fat": 7},
-            {"nf_calories": 200, "nf_protein": 4,
-             "nf_total_carbohydrate": 30, "nf_total_fat": 8},
-        ]
-    }
 
     class FakeResp:
         def __enter__(self):
@@ -155,13 +133,102 @@ def test_nutritionix_success_sums_foods(monkeypatch):
         def read(self):
             return jsonlib.dumps(payload).encode()
 
+    FakeResp.status = status
+    return FakeResp()
+
+
+def test_calorieninjas_failure_returns_none(monkeypatch):
+    from app.nutrition import estimate_nutrition
+
+    def boom(*args, **kwargs):
+        raise urllib.request.URLError("no network")
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    assert estimate_nutrition("2 eggs", "key") is None
+
+
+def test_calorieninjas_non200_returns_none(monkeypatch):
+    import urllib.error
+
+    from app.nutrition import estimate_nutrition
+
+    def bad(*args, **kwargs):
+        raise urllib.error.HTTPError(
+            args[0].full_url, 401, "unauthorized", {}, None
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", bad)
+    assert estimate_nutrition("2 eggs", "key") is None
+
+
+def test_calorieninjas_empty_response_returns_none(monkeypatch):
+    from app.nutrition import estimate_nutrition
+
     monkeypatch.setattr(
-        urllib.request, "urlopen", lambda *a, **k: FakeResp()
+        urllib.request, "urlopen", lambda *a, **k: _fake_response([])
     )
-    result = estimate_nutrition("2 eggs and toast", "id", "key")
+    assert estimate_nutrition("2 eggs", "key") is None
+
+
+def test_calorieninjas_missing_key_returns_none():
+    from app.nutrition import estimate_nutrition
+
+    assert estimate_nutrition("2 eggs", None) is None
+    assert estimate_nutrition("2 eggs", "") is None
+
+
+def test_calorieninjas_success_sums_items(monkeypatch):
+    from app.nutrition import estimate_nutrition
+
+    payload = [
+        {"calories": 100, "protein_g": 6,
+         "carbohydrates_total_g": 1, "fat_total_g": 7},
+        {"calories": 200, "protein_g": 4,
+         "carbohydrates_total_g": 30, "fat_total_g": 8},
+    ]
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda *a, **k: _fake_response(payload)
+    )
+    result = estimate_nutrition("2 eggs and toast", "key")
     assert result == {
         "calories": 300.0,
         "protein_g": 10.0,
         "carbs_g": 31.0,
         "fat_g": 15.0,
     }
+
+
+def test_meal_uses_calorieninjas_when_key_set(client, monkeypatch):
+    from app.nutrition import estimate_nutrition  # noqa: F401 (import check)
+
+    monkeypatch.setenv("API_NINJAS_KEY", "test-key")
+    payload = [
+        {"calories": 500, "protein_g": 30,
+         "carbohydrates_total_g": 55, "fat_total_g": 15},
+    ]
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda *a, **k: _fake_response(payload)
+    )
+    resp = _upload(client, description="chicken biryani")
+    assert resp.status_code == 201
+    meal = resp.get_json()
+    assert meal["source"] == "calorieninjas"
+    assert meal["calories"] == 500.0
+    assert meal["protein_g"] == 30.0
+    assert meal["carbs_g"] == 55.0
+    assert meal["fat_g"] == 15.0
+
+
+def test_meal_falls_back_to_manual_on_api_error(client, monkeypatch):
+    monkeypatch.setenv("API_NINJAS_KEY", "test-key")
+
+    def boom(*args, **kwargs):
+        raise urllib.request.URLError("no network")
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    resp = _upload(
+        client, description="protein shake", calories="180", protein_g="25"
+    )
+    meal = resp.get_json()
+    assert meal["source"] == "manual"
+    assert meal["calories"] == 180.0
