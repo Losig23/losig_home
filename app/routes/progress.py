@@ -365,12 +365,19 @@ def api_exercise_progress(exercise_id):
 
 @progress_bp.get("/exercises/<int:exercise_id>/progress")
 def exercise_chart_page(exercise_id):
+    from app.routes.ui import wrap_page
+
     exercise = db.session.get(Exercise, exercise_id)
     if exercise is None:
         return "Exercise not found", 404
-    return render_exercise_page(exercise, exercise_progress(exercise))
+    return wrap_page(
+        render_exercise_page(exercise, exercise_progress(exercise)),
+        active="progress",
+    )
 
 
 @progress_bp.get("/progress")
 def progress_index():
-    return render_index_page()
+    from app.routes.ui import wrap_page
+
+    return wrap_page(render_index_page(), active="progress")

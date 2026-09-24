@@ -286,4 +286,6 @@ def weight_stats():
 
 @bodyweight_bp.get("/bodyweight")
 def chart_page():
-    return render_chart_page()
+    from app.routes.ui import wrap_page
+
+    return wrap_page(render_chart_page(), active="bodyweight")

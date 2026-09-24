@@ -695,4 +695,6 @@ def travel_analysis():
 
 @travel_bp.get("/travel")
 def travel_page():
-    return render_travel_page()
+    from app.routes.ui import wrap_page
+
+    return wrap_page(render_travel_page(), active="travel")

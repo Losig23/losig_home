@@ -257,9 +257,13 @@ load();
 
 @live_bp.get("/log")
 def log_picker():
-    return render_log_picker()
+    from app.routes.ui import wrap_page
+
+    return wrap_page(render_log_picker(), active="log")
 
 
 @live_bp.get("/sessions/<int:session_id>/log")
 def session_log_page(session_id):
-    return render_session_log(session_id)
+    from app.routes.ui import wrap_page
+
+    return wrap_page(render_session_log(session_id), active="log")

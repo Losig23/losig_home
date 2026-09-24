@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — losig_home</title>
+<link rel="stylesheet" href="/static/css/app.css">
+{{ page_styles|safe }}
+</head>
+<body>
+<nav class="topnav">
+  <a class="brand" href="/">losig_home</a>
+  <div class="nav-links">
+    {% for item in nav %}
+    <a href="{{ item.url }}" class="{% if item.key == active %}active{% endif %}">{{ item.label }}</a>
+    {% endfor %}
+  </div>
+</nav>
+<main class="page">
+{{ content|safe }}
+</main>
+<footer class="site-footer">
+  <span>losig_home · localhost build</span>
+  <a href="/api">API index</a>
+</footer>
+</body>
+</html>

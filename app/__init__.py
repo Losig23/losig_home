@@ -1,4 +1,4 @@
-"""losig_home backend — personal life-hub API (backend-first, no frontend yet)."""
+"""losig_home backend — personal life-hub API + basic localhost frontend."""
 import os
 
 from flask import Flask
@@ -113,6 +113,7 @@ def create_app(config_overrides=None):
     db.init_app(app)
 
     from app.routes.bodyweight import bodyweight_bp
+    from app.routes.frontend import frontend_bp
     from app.routes.live import live_bp
     from app.routes.meals import meals_bp
     from app.routes.progress import progress_bp
@@ -123,6 +124,7 @@ def create_app(config_overrides=None):
     from app.routes.workout import workout_bp
 
     app.register_blueprint(bodyweight_bp)
+    app.register_blueprint(frontend_bp)
     app.register_blueprint(live_bp)
     app.register_blueprint(meals_bp)
     app.register_blueprint(progress_bp)
@@ -148,11 +150,11 @@ def create_app(config_overrides=None):
         else:
             print("Routine already seeded; nothing to do.")
 
-    @app.route("/")
-    def index():
+    @app.route("/api")
+    def api_index():
         return {
             "name": "losig_home",
-            "status": "backend-first: API only, no frontend yet",
+            "status": "ok",
             "docs": "/api/routine",
         }
 

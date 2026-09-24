@@ -14,10 +14,34 @@ The backend for my personal life hub — the site that will eventually live at
   personal site; the TV, speaker, and other objects will read live data from
   this backend
 
-## Status: backend-first
+## Status: basic localhost frontend
 
-There is no frontend yet. The API is fully working and the workout tracker is
-seeded with my exact 5-day routine (all weights in **lb**).
+The API is fully working, seeded with my exact 5-day routine (all weights in
+**lb**), and there is now a basic verification frontend: a dashboard at `/`
+plus pages for every feature, all Flask-served with vanilla HTML/CSS/JS —
+no build step, no npm, no frameworks.
+
+| Page | What it shows |
+|---|---|
+| `/` | Dashboard: latest bodyweight, today's food totals, this week's sessions, travel totals, analyzer verdict counts |
+| `/log` | Start a live workout session (day 1–5 or travel) |
+| `/sessions/<id>/log` | Phone-friendly live logging: per-set weight/reps, count-up rest timer, PR stars, exercise illustrations |
+| `/progress` | Per-exercise est-1RM chart index with sparklines |
+| `/exercises/<id>/progress` | Est-1RM curve with PR stars for one exercise |
+| `/analysis` | Verdict cards (progressing / plateau / regressing) + rest insights |
+| `/bodyweight` | Weight trend chart, 7-day avg, 30-day delta, weigh-in form |
+| `/travel` | Push-up/sit-up chart, per-set logging, verdict badges |
+| `/food` | Meal photo upload + description, daily totals, per-day browser |
+| `/api` | JSON API index (previously served at `/`) |
+
+Shared layout lives in `app/templates/base.html` (top nav) with styles in
+`app/static/css/app.css`. The older inline-HTML pages are wrapped in the
+shared layout by `app/routes/ui.py::wrap_page` rather than rewritten. New
+pages are built as Python HTML strings rendered through `base.html` — same
+pattern as the rest of the codebase.
+
+**Note for the future:** the `/game` URL namespace is reserved for the
+apartment-game frontend that will eventually replace these pages.
 
 ## Setup
 
@@ -258,6 +282,10 @@ record).
   progressing / plateau / regressing from the est-1RM slope and surface rest
   insights (e.g. PR sets averaging longer rests)
 - [x] **Exercise illustrations** — line-drawn SVG per exercise
+- [x] **Basic localhost frontend** — dashboard at `/` with live summary cards,
+  `/food` page (photo upload + daily totals), shared nav + stylesheet across
+  all pages; vanilla HTML/CSS/JS, no build step. `/game` reserved for the
+  future apartment-game frontend.
   (`/static/exercises/<illustration_key>.svg`), thumbnails with tap-to-expand
   on the live `/log` page, illustration on each `/exercises/<id>/progress`
   chart page, `illustration_url` in exercise API output

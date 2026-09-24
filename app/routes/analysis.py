@@ -275,4 +275,6 @@ def analysis_page():
             continue
         values = data.pop("_series_values")
         results.append((data, values))
-    return render_analysis_page(results)
+    from app.routes.ui import wrap_page
+
+    return wrap_page(render_analysis_page(results), active="analysis")
