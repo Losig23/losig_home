@@ -13,7 +13,7 @@ PNG_1X1 = (
     b"\x00\x00\x00\x00IEND\xaeB`\x82"
 )
 
-NAV_URLS = ["/", "/log", "/progress", "/analysis", "/bodyweight", "/travel", "/food"]
+NAV_URLS = ["/", "/log", "/progress", "/analysis", "/bodyweight", "/travel", "/calendar", "/food"]
 
 
 @pytest.fixture(autouse=True)

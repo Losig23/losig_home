@@ -18,6 +18,7 @@ NAV = [
     {"key": "analysis", "label": "Analysis", "url": "/analysis"},
     {"key": "bodyweight", "label": "Bodyweight", "url": "/bodyweight"},
     {"key": "travel", "label": "Travel", "url": "/travel"},
+    {"key": "calendar", "label": "Calendar", "url": "/calendar"},
     {"key": "food", "label": "Food", "url": "/food"},
 ]
 
