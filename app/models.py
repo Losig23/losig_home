@@ -20,7 +20,11 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        # pbkdf2:sha256 pinned explicitly: Werkzeug's default (scrypt) requires
+        # hashlib.scrypt, which some Python builds (e.g. Apple Python 3.9 /
+        # LibreSSL) don't provide. pbkdf2 works identically on every machine
+        # the app runs on, so hashes stay portable.
+        self.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
