@@ -7,9 +7,10 @@ treatment the bodyweight and progressive-overload modules got.
 import html
 from datetime import date
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, make_response, request
 
 from app import db
+from app.auth import effective_user_id, get_owned
 from app.models import TravelSession, TravelSet
 
 travel_bp = Blueprint("travel", __name__)
@@ -69,9 +70,13 @@ def aggregate_by_date():
     travel_session has no unique(date) constraint and POST /api/travel
     inserts (never upserts), so dupes are real and must be aggregated.
     """
-    logs = TravelSession.query.order_by(
-        TravelSession.date.asc(), TravelSession.id.asc()
-    ).all()
+    logs = (
+        TravelSession.query.filter(
+            TravelSession.user_id == effective_user_id()
+        )
+        .order_by(TravelSession.date.asc(), TravelSession.id.asc())
+        .all()
+    )
     days = {}
     for log in logs:
         key = log.date.isoformat()
@@ -144,9 +149,11 @@ def travel_daily_totals():
     logged before the per-set feature still count in the analysis.
     """
     sessions = (
-        TravelSession.query.order_by(
-            TravelSession.date.asc(), TravelSession.id.asc()
-        ).all()
+        TravelSession.query.filter(
+            TravelSession.user_id == effective_user_id()
+        )
+        .order_by(TravelSession.date.asc(), TravelSession.id.asc())
+        .all()
     )
     set_sums = {}
     agg_sums = {}
@@ -199,8 +206,15 @@ def analyze_travel_movement(movement):
             verdict = "plateau"
 
     rest_rows = (
-        TravelSet.query.filter_by(movement=movement)
-        .filter(TravelSet.rest_seconds.isnot(None))
+        TravelSet.query.join(
+            TravelSession,
+            TravelSet.travel_session_id == TravelSession.id,
+        )
+        .filter(
+            TravelSession.user_id == effective_user_id(),
+            TravelSet.movement == movement,
+            TravelSet.rest_seconds.isnot(None),
+        )
         .all()
     )
     avg_rest = _avg([r.rest_seconds for r in rest_rows])
@@ -585,7 +599,7 @@ def log_travel_set(session_id):
 
     set_number defaults to max existing + 1 for this movement+session.
     """
-    session = db.session.get(TravelSession, session_id)
+    session = get_owned(TravelSession, session_id)
     if session is None:
         return jsonify({"error": "Travel session not found"}), 404
 
@@ -630,7 +644,17 @@ def log_travel_set(session_id):
 @travel_bp.patch("/api/travel/sets/<int:set_id>")
 def edit_travel_set(set_id):
     """Fix a logged travel set: {"reps": 22, "rest_seconds": 75}."""
-    tset = db.session.get(TravelSet, set_id)
+    tset = (
+        TravelSet.query.join(
+            TravelSession,
+            TravelSet.travel_session_id == TravelSession.id,
+        )
+        .filter(
+            TravelSet.id == set_id,
+            TravelSession.user_id == effective_user_id(),
+        )
+        .first()
+    )
     if tset is None:
         return jsonify({"error": "Set not found"}), 404
 
@@ -664,7 +688,17 @@ def edit_travel_set(set_id):
 @travel_bp.delete("/api/travel/sets/<int:set_id>")
 def delete_travel_set(set_id):
     """Remove a logged travel set (fat-fingered entry)."""
-    tset = db.session.get(TravelSet, set_id)
+    tset = (
+        TravelSet.query.join(
+            TravelSession,
+            TravelSet.travel_session_id == TravelSession.id,
+        )
+        .filter(
+            TravelSet.id == set_id,
+            TravelSession.user_id == effective_user_id(),
+        )
+        .first()
+    )
     if tset is None:
         return jsonify({"error": "Set not found"}), 404
     db.session.delete(tset)
@@ -675,12 +709,166 @@ def delete_travel_set(set_id):
 @travel_bp.get("/api/travel/<int:session_id>")
 def travel_session_detail(session_id):
     """One travel day: aggregates plus per-set rows grouped by movement."""
-    session = db.session.get(TravelSession, session_id)
+    session = get_owned(TravelSession, session_id)
     if session is None:
         return jsonify({"error": "Travel session not found"}), 404
     payload = session.to_dict()
     payload["sets_by_movement"] = session.sets_by_movement()
     return jsonify(payload)
+
+
+@travel_bp.get("/api/travel/calendar")
+def travel_calendar():
+    """Month view: {"YYYY-MM-DD": [travel day summaries]} for days with
+    travel sessions. Query: ?year=YYYY&month=M (defaults to current)."""
+    import calendar as calendar_mod
+
+    try:
+        year = int(request.args.get("year", date.today().year))
+        month = int(request.args.get("month", date.today().month))
+    except (TypeError, ValueError):
+        return jsonify({"error": "year and month must be integers"}), 400
+    if not 1 <= month <= 12 or year < 1:
+        return jsonify({"error": "month must be 1-12 and year positive"}), 400
+
+    _, days_in_month = calendar_mod.monthrange(year, month)
+    first = date(year, month, 1)
+    last = date(year, month, days_in_month)
+
+    sessions = (
+        TravelSession.query.filter(
+            TravelSession.user_id == effective_user_id(),
+            TravelSession.date >= first,
+            TravelSession.date <= last,
+        )
+        .order_by(TravelSession.date.asc(), TravelSession.id.asc())
+        .all()
+    )
+    out = {}
+    for session in sessions:
+        out.setdefault(session.date.isoformat(), []).append(
+            {
+                "id": session.id,
+                "date": session.date.isoformat(),
+                "pushups": session.pushups,
+                "situps": session.situps,
+                "set_count": len(session.sets),
+            }
+        )
+    return jsonify(out)
+
+
+@travel_bp.patch("/api/travel/<int:session_id>")
+def update_travel_session(session_id):
+    """Modify a travel day: {"date": "YYYY-MM-DD", "pushups": 60,
+    "situps": 50, "notes": "..."}. Each field validated independently."""
+    session = get_owned(TravelSession, session_id)
+    if session is None:
+        return jsonify({"error": "Travel session not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    changed = False
+
+    if "date" in data:
+        try:
+            new_date = date.fromisoformat(data["date"])
+        except (ValueError, TypeError):
+            return jsonify({"error": "date must be YYYY-MM-DD"}), 400
+        session.date = new_date
+        changed = True
+
+    for field in ("pushups", "situps"):
+        if field in data:
+            value = data[field]
+            if value is not None:
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    return (
+                        jsonify({"error": f"'{field}' must be a number"}),
+                        400,
+                    )
+                if value < 0:
+                    return (
+                        jsonify({"error": f"'{field}' must be >= 0"}),
+                        400,
+                    )
+            setattr(session, field, value)
+            changed = True
+
+    if "notes" in data:
+        session.notes = data["notes"] or None
+        changed = True
+
+    if not changed:
+        return (
+            jsonify({"error": "provide date, pushups, situps, or notes"}),
+            400,
+        )
+
+    db.session.commit()
+    return jsonify(session.to_dict())
+
+
+@travel_bp.delete("/api/travel/<int:session_id>")
+def delete_travel_session(session_id):
+    """Delete a travel day and its per-set rows (relationship cascade)."""
+    session = get_owned(TravelSession, session_id)
+    if session is None:
+        return jsonify({"error": "Travel session not found"}), 404
+    db.session.delete(session)
+    db.session.commit()
+    return jsonify({"deleted": session_id})
+
+
+@travel_bp.get("/api/travel/<int:session_id>/export")
+def export_travel_session(session_id):
+    """Download a human-readable .txt summary of a travel day."""
+    session = get_owned(TravelSession, session_id)
+    if session is None:
+        return jsonify({"error": "Travel session not found"}), 404
+
+    def _num(value):
+        return "—" if value is None else f"{value:g}"
+
+    lines = [
+        f"Travel day #{session.id} — {session.date.isoformat()}",
+        f"Totals: {_num(session.pushups)} push-ups, "
+        f"{_num(session.situps)} sit-ups",
+    ]
+    if session.notes:
+        lines.append(f"Notes: {session.notes}")
+    lines.append("")
+
+    by_movement = session.sets_by_movement()
+    total_sets = 0
+    for movement in ("pushup", "situp"):
+        sets = by_movement[movement]
+        if not sets:
+            continue
+        name = "Push-ups" if movement == "pushup" else "Sit-ups"
+        lines.append(f"{name}:")
+        for st in sets:
+            total_sets += 1
+            rest = (
+                f", rest {st['rest_seconds']}s"
+                if st["rest_seconds"] is not None
+                else ""
+            )
+            lines.append(
+                f"  Set {st['set_number']}: {_num(st['reps'])} reps{rest}"
+            )
+    if total_sets == 0:
+        lines.append("No per-set rows logged for this day.")
+    lines += ["", f"Total sets logged: {total_sets}"]
+    body = "\n".join(lines) + "\n"
+
+    resp = make_response(body)
+    resp.headers["Content-Type"] = "text/plain"
+    resp.headers["Content-Disposition"] = (
+        f"attachment; filename=travel-{session.date.isoformat()}.txt"
+    )
+    return resp
 
 
 @travel_bp.get("/api/travel/analysis")

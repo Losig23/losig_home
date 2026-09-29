@@ -205,7 +205,7 @@ def test_calendar_page_renders(client):
     resp = client.get("/calendar")
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
-    assert "Workout Calendar" in html
+    assert "Training Calendar" in html
     assert 'href="/calendar"' in html
     assert "/api/sessions/calendar" in html
     assert "topnav" in html

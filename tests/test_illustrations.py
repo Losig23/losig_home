@@ -39,7 +39,8 @@ def test_all_svgs_valid_xml_viewbox_and_size():
 
 
 def test_svg_served_with_correct_content_type(client):
-    ex = Exercise.query.first()
+    with client.application.app_context():
+        ex = Exercise.query.first()
     resp = client.get(url_for_exercise(ex))
     assert resp.status_code == 200
     assert resp.content_type.startswith("image/svg+xml")
@@ -89,10 +90,12 @@ def test_log_page_references_illustrations(client):
 
 
 def test_progress_api_and_page_include_illustration(client):
-    ex = Exercise.query.filter_by(name="Squats").first()
-    data = client.get(f"/api/exercises/{ex.id}/progress").get_json()
+    with client.application.app_context():
+        ex = Exercise.query.filter_by(name="Squats").first()
+        ex_id = ex.id
+    data = client.get(f"/api/exercises/{ex_id}/progress").get_json()
     assert data["exercise"]["illustration_url"] == "/static/exercises/squats.svg"
-    html = client.get(f"/exercises/{ex.id}/progress").get_data(as_text=True)
+    html = client.get(f"/exercises/{ex_id}/progress").get_data(as_text=True)
     assert "/static/exercises/squats.svg" in html
 
 

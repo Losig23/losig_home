@@ -10,6 +10,7 @@ extending base.html directly.
 import re
 
 from flask import render_template
+from flask_login import current_user
 
 NAV = [
     {"key": "dashboard", "label": "Dashboard", "url": "/"},
@@ -21,6 +22,15 @@ NAV = [
     {"key": "calendar", "label": "Calendar", "url": "/calendar"},
     {"key": "food", "label": "Food", "url": "/food"},
 ]
+
+NAV_PUBLIC = [
+    {"key": "home", "label": "Home", "url": "/"},
+]
+
+
+def get_nav():
+    """Full nav when logged in, minimal public nav otherwise."""
+    return NAV if current_user.is_authenticated else NAV_PUBLIC
 
 
 def wrap_page(full_html, active="dashboard"):
@@ -42,6 +52,6 @@ def wrap_page(full_html, active="dashboard"):
         title=title,
         page_styles=page_styles,
         content=content,
-        nav=NAV,
+        nav=get_nav(),
         active=active,
     )

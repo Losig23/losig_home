@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
 
 from app import db
+from app.auth import effective_user_id
 from app.models import BodyWeightLog
 
 bodyweight_bp = Blueprint("bodyweight", __name__)
@@ -20,7 +21,9 @@ def _parse_date(value):
 
 def compute_stats():
     """Latest weight, 7-day avg, 30-day delta, trend, and log count."""
-    logs = BodyWeightLog.query.order_by(BodyWeightLog.date.asc()).all()
+    logs = BodyWeightLog.query.filter(
+        BodyWeightLog.user_id == effective_user_id()
+    ).order_by(BodyWeightLog.date.asc()).all()
     if not logs:
         return {
             "latest": None,
@@ -162,7 +165,9 @@ def render_chart_svg(logs, width=880, height=440):
 
 def render_chart_page():
     stats = compute_stats()
-    logs = BodyWeightLog.query.order_by(BodyWeightLog.date.asc()).all()
+    logs = BodyWeightLog.query.filter(
+        BodyWeightLog.user_id == effective_user_id()
+    ).order_by(BodyWeightLog.date.asc()).all()
 
     if not logs:
         chart = "<p>No weigh-ins yet. Log your first weight below.</p>"
@@ -245,9 +250,14 @@ def log_weight():
     if weight <= 0 or weight > 1500:
         return jsonify({"error": "weight_lb looks out of range"}), 400
 
-    entry = BodyWeightLog.query.filter_by(date=log_date).first()
+    entry = BodyWeightLog.query.filter_by(
+        date=log_date, user_id=effective_user_id()
+    ).first()
     if entry is None:
-        entry = BodyWeightLog(date=log_date, weight_lb=weight)
+        entry = BodyWeightLog(
+            date=log_date, weight_lb=weight,
+            user_id=effective_user_id(),
+        )
         db.session.add(entry)
     else:
         entry.weight_lb = weight
@@ -260,7 +270,9 @@ def log_weight():
 @bodyweight_bp.get("/api/bodyweight")
 def list_weights():
     """Ordered list, optional ?from=YYYY-MM-DD&to=YYYY-MM-DD."""
-    query = BodyWeightLog.query
+    query = BodyWeightLog.query.filter(
+        BodyWeightLog.user_id == effective_user_id()
+    )
     if request.args.get("from"):
         try:
             query = query.filter(

@@ -8,6 +8,7 @@ planned_set_id NULL.
 from flask import Blueprint, jsonify, request
 
 from app import db
+from app.auth import get_owned
 from app.lifting import est_1rm, is_pr_for_set
 from app.models import Exercise, SetLog, WorkoutSession
 
@@ -31,7 +32,7 @@ def log_set(session_id):
     set_number defaults to max existing + 1 for this exercise+session.
     Returns the set with its est_1rm and is_pr flag.
     """
-    session = db.session.get(WorkoutSession, session_id)
+    session = get_owned(WorkoutSession, session_id)
     if session is None:
         return jsonify({"error": "Session not found"}), 404
 

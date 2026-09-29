@@ -1,6 +1,16 @@
 """Seed correctness: 5 days, exact set counts, spot-checked values."""
+import pytest
+
 from app.models import Exercise, PlannedSet, RoutineDay
 from app.seed import total_sets_per_day
+
+
+@pytest.fixture(autouse=True)
+def _app_ctx(app):
+    # Model queries need an app context; this module never logs in, so the
+    # shared context can't leak a Flask-Login user between requests.
+    with app.app_context():
+        yield
 
 EXPECTED_SET_COUNTS = {1: 22, 2: 23, 3: 22, 4: 30, 5: 23}
 

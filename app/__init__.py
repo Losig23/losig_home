@@ -1,7 +1,7 @@
 """losig_home backend — personal life-hub API + basic localhost frontend."""
 import os
 
-from flask import Flask
+from flask import Flask, jsonify, redirect, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -53,23 +53,42 @@ def _rebuild_set_log_nullable():
 
 
 def ensure_schema():
-    """Add columns to pre-existing DBs (no migration framework here).
+    """Bring pre-existing DBs up to the current schema (no migrations here).
 
-    Idempotent and safe to run on every startup: skipped entirely on fresh
-    DBs (db.create_all() builds the full schema) and on non-SQLite engines.
+    Idempotent and safe to run on every startup; skipped entirely on
+    non-SQLite engines. Two passes:
+
+    1. ``create_all(checkfirst=True)`` creates tables missing from the DB
+       (e.g. body_weight_log/meal_log on DBs created before those
+       features) without touching existing tables.
+    2. ``ALTER TABLE`` adds columns missing from existing tables
+       (user_id, plus the legacy set_log columns).
     """
     if db.engine.dialect.name != "sqlite":
         return
     from sqlalchemy import text
 
-    tables = {
-        row[0]
-        for row in db.session.execute(
-            text("SELECT name FROM sqlite_master WHERE type='table'")
-        )
-    }
-    if "set_log" not in tables:
-        return  # create_all() will build it with the new columns
+    import app.models  # noqa: F401 -- register every model table
+
+    # Pass 1: missing tables (fresh and legacy DBs alike).
+    db.Model.metadata.create_all(db.engine, checkfirst=True)
+
+    # Pass 2: missing columns on tables that already existed.
+    for table in (
+        "workout_session",
+        "travel_session",
+        "body_weight_log",
+        "meal_log",
+    ):
+        cols = {
+            row[1]
+            for row in db.session.execute(text(f"PRAGMA table_info({table})"))
+        }
+        if "user_id" not in cols:
+            db.session.execute(
+                text(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER")
+            )
+    db.session.commit()
 
     for col, ddl in [
         ("is_pr", "ALTER TABLE set_log ADD COLUMN is_pr BOOLEAN NOT NULL DEFAULT 0"),
@@ -97,12 +116,8 @@ def ensure_schema():
 
 
 def create_app(config_overrides=None):
-    app = Flask(__name__)
-    app.config.from_object("config.Config")
-    if config_overrides:
-        app.config.update(config_overrides)
-
-    # Load optional .env for local dev (real env vars take precedence).
+    # Load .env BEFORE config: config.py reads os.environ at import time,
+    # so SECRET_KEY / DATABASE_URL from .env must be present already.
     try:
         from dotenv import load_dotenv
 
@@ -110,7 +125,26 @@ def create_app(config_overrides=None):
     except ImportError:
         pass
 
+    app = Flask(__name__)
+    app.config.from_object("config.Config")
+    if config_overrides:
+        app.config.update(config_overrides)
+
+    # Sessions sign login cookies: fail fast without a real secret, except
+    # in tests (fixed dummy key) — never ship a hardcoded production key.
+    if app.config.get("TESTING"):
+        app.secret_key = "test-secret-key-not-for-production"
+    elif not app.config.get("SECRET_KEY"):
+        raise RuntimeError(
+            "SECRET_KEY is not set. Add it to your environment or a local "
+            ".env file (see .env.example) and restart."
+        )
+
     db.init_app(app)
+
+    from app.auth import auth_bp, login_manager
+
+    login_manager.init_app(app)
 
     from app.routes.bodyweight import bodyweight_bp
     from app.routes.frontend import frontend_bp
@@ -123,6 +157,7 @@ def create_app(config_overrides=None):
     from app.routes.travel import travel_bp
     from app.routes.workout import workout_bp
 
+    app.register_blueprint(auth_bp)
     app.register_blueprint(bodyweight_bp)
     app.register_blueprint(frontend_bp)
     app.register_blueprint(live_bp)
@@ -133,6 +168,22 @@ def create_app(config_overrides=None):
     app.register_blueprint(analysis_bp)
     app.register_blueprint(travel_bp)
     app.register_blueprint(workout_bp)
+
+    @app.before_request
+    def _require_login():
+        """Default-deny auth gate: everything needs a login except the
+        explicit public surface (home page, login/logout, API index,
+        health check, public week feed, static assets)."""
+        from flask_login import current_user
+
+        path = request.path
+        if path in _PUBLIC_PATHS or path.startswith(_PUBLIC_PREFIXES):
+            return None
+        if current_user.is_authenticated:
+            return None
+        if path.startswith("/api"):
+            return jsonify({"error": "Authentication required"}), 401
+        return redirect(url_for("auth.login", next=path))
 
     with app.app_context():
         ensure_schema()
@@ -150,6 +201,61 @@ def create_app(config_overrides=None):
         else:
             print("Routine already seeded; nothing to do.")
 
+    @app.cli.command("create-user")
+    def create_user_command():
+        """Create the single login account. Existing rows with no owner
+        (user_id NULL) are adopted by the new user."""
+        import getpass
+
+        from app.models import (
+            BodyWeightLog,
+            MealLog,
+            TravelSession,
+            User,
+            WorkoutSession,
+        )
+
+        username = input("Username: ").strip()
+        if not username:
+            print("Username is required.")
+            return
+        if User.query.filter_by(username=username).first():
+            print(f"User '{username}' already exists.")
+            return
+        pw1 = getpass.getpass("Password: ")
+        pw2 = getpass.getpass("Confirm password: ")
+        if not pw1 or pw1 != pw2:
+            print("Passwords do not match or are empty.")
+            return
+
+        user = User(username=username)
+        user.set_password(pw1)
+        db.session.add(user)
+        db.session.flush()  # assign id before adopting rows
+
+        adopted = 0
+        for model in (WorkoutSession, TravelSession, BodyWeightLog, MealLog):
+            adopted += (
+                model.query.filter_by(user_id=None)
+                .update({"user_id": user.id}, synchronize_session=False)
+            )
+        db.session.commit()
+        print(
+            f"Created user '{username}' (id {user.id}); "
+            f"adopted {adopted} existing rows."
+        )
+
+    @app.cli.command("list-users")
+    def list_users_command():
+        """List login usernames (never password hashes)."""
+        from app.models import User
+
+        users = User.query.order_by(User.id).all()
+        if not users:
+            print("No users yet. Run 'flask create-user' first.")
+        for u in users:
+            print(u.username)
+
     @app.route("/api")
     def api_index():
         return {
@@ -159,3 +265,9 @@ def create_app(config_overrides=None):
         }
 
     return app
+
+
+_PUBLIC_PATHS = frozenset(
+    {"/", "/login", "/logout", "/api", "/api/health"}
+)
+_PUBLIC_PREFIXES = ("/static/", "/api/public/")

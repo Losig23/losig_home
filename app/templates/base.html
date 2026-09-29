@@ -14,6 +14,11 @@
     {% for item in nav %}
     <a href="{{ item.url }}" class="{% if item.key == active %}active{% endif %}">{{ item.label }}</a>
     {% endfor %}
+    {% if current_user.is_authenticated %}
+    <form action="/logout" method="post" class="nav-logout"><button type="submit">Logout</button></form>
+    {% else %}
+    <a href="/login" class="{% if active == 'login' %}active{% endif %}">Login</a>
+    {% endif %}
   </div>
 </nav>
 <main class="page">

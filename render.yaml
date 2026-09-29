@@ -7,3 +7,5 @@ services:
     envVars:
       - key: DATABASE_URL
         value: sqlite:///losig_home.db
+      - key: SECRET_KEY
+        generateValue: true

@@ -14,7 +14,8 @@ from app.models import Exercise, MealLog, WorkoutSession
 from app.routes.analysis import analyze_exercise
 from app.routes.bodyweight import compute_stats as bodyweight_stats
 from app.routes.travel import compute_travel_stats
-from app.routes.ui import NAV
+from app.auth import effective_user_id, render_public_home
+from app.routes.ui import get_nav
 
 frontend_bp = Blueprint("frontend", __name__)
 
@@ -22,7 +23,7 @@ frontend_bp = Blueprint("frontend", __name__)
 def _page(title, body, active, page_styles=""):
     return render_template(
         "base.html", title=title, page_styles=page_styles, content=body,
-        nav=NAV, active=active,
+        nav=get_nav(), active=active,
     )
 
 
@@ -216,10 +217,25 @@ loadDay();
 
 @frontend_bp.get("/")
 def dashboard():
+    from flask_login import current_user
+
+    if not current_user.is_authenticated:
+        # Public weekly view: last 7 days only, no photos, no full history.
+        return render_template(
+            "base.html",
+            title="Ani's training log",
+            page_styles="",
+            content=render_public_home(),
+            nav=get_nav(),
+            active="home",
+        )
     bw = bodyweight_stats()
     today = date.today().isoformat()
     meals = (
-        MealLog.query.filter(db.func.date(MealLog.logged_at) == today)
+        MealLog.query.filter(
+            MealLog.user_id == effective_user_id(),
+            db.func.date(MealLog.logged_at) == today,
+        )
         .order_by(MealLog.logged_at.asc())
         .all()
     )
@@ -233,7 +249,10 @@ def dashboard():
 
     monday = date.today() - timedelta(days=date.today().weekday())
     week_sessions = (
-        WorkoutSession.query.filter(WorkoutSession.date >= monday)
+        WorkoutSession.query.filter(
+            WorkoutSession.user_id == effective_user_id(),
+            WorkoutSession.date >= monday,
+        )
         .order_by(WorkoutSession.date.desc())
         .all()
     )
@@ -276,6 +295,9 @@ _CALENDAR_STYLES = """
 .cal-cell.has-sessions{background:#f8fafc}
 .cal-badge{position:absolute;bottom:.3rem;right:.4rem;background:var(--accent);color:#fff;
   font-size:.7rem;border-radius:999px;padding:.05rem .45rem}
+.cal-badge.travel{background:#0d9488;bottom:1.35rem}
+.travel-tag{display:inline-block;background:#0d9488;color:#fff;font-size:.7rem;
+  border-radius:999px;padding:.05rem .5rem;margin-left:.4rem;vertical-align:middle}
 .sess-actions{display:flex;flex-direction:column;gap:.4rem}
 .sess-modify .form-row{margin:.5rem 0}
 @media (max-width:640px){
@@ -288,8 +310,8 @@ _CALENDAR_STYLES = """
 
 def _calendar_body():
     return """
-<h1>Workout Calendar</h1>
-<p style="color:#6b7280">Browse sessions by day — open, export, modify, or delete them.</p>
+<h1>Training Calendar</h1>
+<p style="color:#6b7280">Workouts and travel days by date — open, export, modify, or delete them.</p>
 <div class="cal-controls">
   <button class="btn secondary" id="cal-prev">&larr; Prev</button>
   <div id="cal-title"></div>
@@ -320,8 +342,16 @@ async function loadRoutine() {
 }
 
 async function loadMonth() {
-  const res = await fetch(`/api/sessions/calendar?year=${viewY}&month=${viewM}`);
-  monthData = await res.json();
+  const [wRes, tRes] = await Promise.all([
+    fetch(`/api/sessions/calendar?year=${viewY}&month=${viewM}`),
+    fetch(`/api/travel/calendar?year=${viewY}&month=${viewM}`),
+  ]);
+  monthData = await wRes.json();
+  const travelDays = await tRes.json();
+  for (const [iso, entries] of Object.entries(travelDays)) {
+    monthData[iso] = (monthData[iso] || []).concat(
+      entries.map(e => ({...e, kind: "travel"})));
+  }
   renderGrid();
   renderPanel();
 }
@@ -337,14 +367,18 @@ function renderGrid() {
   for (let i = 0; i < firstDow; i++) cells += '<div class="cal-cell blank"></div>';
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = isoOf(viewY, viewM, d);
-    const n = (monthData[iso] || []).length;
+    const entries = monthData[iso] || [];
+    const nW = entries.filter(e => e.kind !== "travel").length;
+    const nT = entries.filter(e => e.kind === "travel").length;
     const cls = ["cal-cell"];
     if (iso === todayIso) cls.push("today");
     if (iso === selectedDay) cls.push("selected");
-    if (n) cls.push("has-sessions");
-    const badge = n ? `<span class="cal-badge">${n}</span>` : "";
+    if (entries.length) cls.push("has-sessions");
+    const badges =
+      (nW ? `<span class="cal-badge">${nW}</span>` : "") +
+      (nT ? `<span class="cal-badge travel">${nT} travel</span>` : "");
     cells += `<div class="${cls.join(" ")}" data-day="${iso}">` +
-      `<span class="cal-num">${d}</span>${badge}</div>`;
+      `<span class="cal-num">${d}</span>${badges}</div>`;
   }
   $("cal-grid").innerHTML = cells;
   $("cal-grid").querySelectorAll("[data-day]").forEach(el => {
@@ -360,6 +394,31 @@ function dayOptions(current) {
   return routineDays.map(d =>
     `<option value="${d.n}"${d.n === current ? " selected" : ""}>` +
     `Day ${d.n} — ${esc(d.name)}</option>`).join("");
+}
+
+function travelCard(t) {
+  const pu = t.pushups === null || t.pushups === undefined ? "—" : t.pushups;
+  const su = t.situps === null || t.situps === undefined ? "—" : t.situps;
+  return `
+  <div class="meal" data-id="${t.id}" data-kind="travel">
+    <div style="flex:1;min-width:0">
+      <div><b>Travel day</b><span class="travel-tag">travel</span></div>
+      <div class="macros">${pu} push-ups &middot; ${su} sit-ups &middot; ${t.set_count} sets</div>
+      <div class="sess-modify" hidden>
+        <div class="form-row">
+          <label>Date <input type="date" class="t-date" value="${t.date}"></label>
+          <label>Push-ups <input type="number" class="t-pushups" min="0" value="${t.pushups ?? ""}"></label>
+          <label>Sit-ups <input type="number" class="t-situps" min="0" value="${t.situps ?? ""}"></label>
+          <button class="btn secondary t-apply" type="button">Apply</button>
+        </div>
+      </div>
+    </div>
+    <div class="sess-actions">
+      <a class="btn secondary" href="/api/travel/${t.id}/export">Export</a>
+      <button class="btn secondary t-toggle" type="button">Modify</button>
+      <button class="btn secondary t-delete" type="button">Delete</button>
+    </div>
+  </div>`;
 }
 
 function sessionCard(s) {
@@ -401,8 +460,39 @@ function renderPanel() {
       '<p style="color:#6b7280">No sessions logged on this day.</p>';
     return;
   }
-  box.innerHTML = `<h2>${esc(selectedDay)}</h2>` + sessions.map(sessionCard).join("");
-  box.querySelectorAll(".meal[data-id]").forEach(card => {
+  box.innerHTML = `<h2>${esc(selectedDay)}</h2>` + sessions.map(
+    s => s.kind === "travel" ? travelCard(s) : sessionCard(s)).join("");
+  box.querySelectorAll('.meal[data-kind="travel"]').forEach(card => {
+    const id = card.dataset.id;
+    const mod = card.querySelector(".sess-modify");
+    card.querySelector(".t-toggle").addEventListener("click", () => {
+      mod.hidden = !mod.hidden;
+    });
+    card.querySelector(".t-apply").addEventListener("click", async () => {
+      const payload = {
+        date: card.querySelector(".t-date").value,
+        pushups: parseInt(card.querySelector(".t-pushups").value, 10) || null,
+        situps: parseInt(card.querySelector(".t-situps").value, 10) || null,
+      };
+      const res = await fetch(`/api/travel/${id}`, {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) { await loadMonth(); }
+      else {
+        const err = await res.json().catch(() => ({}));
+        alert("Error: " + (err.error || res.status));
+      }
+    });
+    card.querySelector(".t-delete").addEventListener("click", async () => {
+      if (!confirm("Delete this travel day and its sets?")) return;
+      const res = await fetch(`/api/travel/${id}`, {method: "DELETE"});
+      if (res.ok) { await loadMonth(); }
+      else { alert("Delete failed: " + res.status); }
+    });
+  });
+  box.querySelectorAll('.meal[data-id]:not([data-kind="travel"])').forEach(card => {
     const id = card.dataset.id;
     const mod = card.querySelector(".sess-modify");
     card.querySelector(".m-toggle").addEventListener("click", () => {

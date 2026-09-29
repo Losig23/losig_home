@@ -53,6 +53,12 @@ body {
 }
 .topnav .nav-links a:hover { background: rgba(255,255,255,0.15); }
 .topnav .nav-links a.active { background: #fff; color: var(--accent-dark); font-weight: 600; }
+.topnav .nav-logout { display: inline; margin: 0; }
+.topnav .nav-logout button {
+  background: none; border: none; cursor: pointer;
+  color: #dbeafe; padding: 0.4rem 0.7rem; border-radius: 6px; font-size: 0.9rem;
+}
+.topnav .nav-logout button:hover { background: rgba(255,255,255,0.15); }
 
 /* ---- page frame ---- */
 .page {

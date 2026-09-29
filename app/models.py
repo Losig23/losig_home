@@ -1,6 +1,29 @@
 """SQLAlchemy models for the losig_home workout tracker."""
+from flask_login import UserMixin
+from werkzeug.security import check_password_hash, generate_password_hash
+
 from app import db
 from app.illustrations import url_for_exercise
+
+
+class User(UserMixin, db.Model):
+    """The single login account (Ani). The app is single-user by design —
+    no registration route exists; the account is created with
+    ``flask create-user``. ``user_id`` on every data table scopes all
+    queries to this account, so a future second user would be isolated
+    without a rewrite."""
+
+    __tablename__ = "app_user"  # "user" is reserved in Postgres
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
 class RoutineDay(db.Model):
@@ -83,6 +106,7 @@ class WorkoutSession(db.Model):
     day_id = db.Column(db.Integer, db.ForeignKey("routine_day.id"), nullable=True)
     travel_mode = db.Column(db.Boolean, default=False, nullable=False)
     completed_pct = db.Column(db.REAL, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("app_user.id"), nullable=True)
 
     day = db.relationship("RoutineDay")
     set_logs = db.relationship(
@@ -101,7 +125,10 @@ class WorkoutSession(db.Model):
         log exists for the date, else None."""
         if self.travel_mode:
             has_log = (
-                TravelSession.query.filter_by(date=self.date).first() is not None
+                TravelSession.query.filter_by(
+                    date=self.date, user_id=self.user_id
+                ).first()
+                is not None
             )
             return 100.0 if has_log else None
         planned = self.planned_set_ids()
@@ -229,6 +256,7 @@ class TravelSession(db.Model):
     pushups = db.Column(db.Integer, nullable=True)
     situps = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("app_user.id"), nullable=True)
 
     sets = db.relationship(
         "TravelSet",
@@ -297,6 +325,7 @@ class BodyWeightLog(db.Model):
     date = db.Column(db.Date, unique=True, nullable=False)
     weight_lb = db.Column(db.REAL, nullable=False)
     note = db.Column(db.Text, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("app_user.id"), nullable=True)
 
     def to_dict(self):
         return {
@@ -321,6 +350,7 @@ class MealLog(db.Model):
     fat_g = db.Column(db.REAL, nullable=True)
     logged_at = db.Column(db.DateTime, nullable=False)
     source = db.Column(db.String(20), nullable=False, default="manual")
+    user_id = db.Column(db.Integer, db.ForeignKey("app_user.id"), nullable=True)
 
     def to_dict(self):
         return {

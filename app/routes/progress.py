@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify
 from sqlalchemy import or_
 
 from app import db
+from app.auth import effective_user_id
 from app.illustrations import url_for_exercise
 from app.lifting import est_1rm
 from app.models import Exercise, PlannedSet, RoutineDay, SetLog, WorkoutSession
@@ -34,6 +35,7 @@ def _weighted_logs(exercise_id):
             ),
             SetLog.checked.is_(True),
             SetLog.actual_weight_lb.isnot(None),
+            WorkoutSession.user_id == effective_user_id(),
         )
         .order_by(
             WorkoutSession.date.asc(), WorkoutSession.id.asc(), SetLog.id.asc()

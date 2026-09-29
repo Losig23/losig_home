@@ -5,6 +5,7 @@ from datetime import date
 from flask import Blueprint, jsonify, make_response, request
 
 from app import db
+from app.auth import effective_user_id, get_owned
 from app.lifting import is_pr_for_set
 from app.models import PlannedSet, RoutineDay, SetLog, TravelSession, WorkoutSession
 
@@ -46,13 +47,19 @@ def start_session():
     session_date = _parse_date(data.get("date"))
 
     if data.get("travel_mode"):
-        session = WorkoutSession(date=session_date, travel_mode=True)
+        session = WorkoutSession(
+            date=session_date, travel_mode=True,
+            user_id=effective_user_id(),
+        )
     else:
         day_number = data.get("day_number")
         day = RoutineDay.query.filter_by(day_number=day_number).first()
         if day is None:
             return jsonify({"error": "day_number must be 1-5"}), 400
-        session = WorkoutSession(date=session_date, day_id=day.id)
+        session = WorkoutSession(
+            date=session_date, day_id=day.id,
+            user_id=effective_user_id(),
+        )
 
     db.session.add(session)
     db.session.commit()
@@ -63,7 +70,9 @@ def start_session():
 def list_sessions():
     """Recent sessions, newest first. Optional filters: ?date=YYYY-MM-DD,
     or ?from=YYYY-MM-DD&to=YYYY-MM-DD (inclusive)."""
-    query = WorkoutSession.query
+    query = WorkoutSession.query.filter(
+        WorkoutSession.user_id == effective_user_id()
+    )
 
     single = request.args.get("date")
     if single:
@@ -112,6 +121,7 @@ def sessions_calendar():
 
     sessions = (
         WorkoutSession.query.filter(
+            WorkoutSession.user_id == effective_user_id(),
             WorkoutSession.date >= first, WorkoutSession.date <= last
         )
         .order_by(WorkoutSession.date.asc(), WorkoutSession.id.asc())
@@ -128,7 +138,7 @@ def sessions_calendar():
 @workout_bp.delete("/sessions/<int:session_id>")
 def delete_session(session_id):
     """Delete a session and its set logs (relationship cascade)."""
-    session = db.session.get(WorkoutSession, session_id)
+    session = get_owned(WorkoutSession, session_id)
     if session is None:
         return jsonify({"error": "Session not found"}), 404
     db.session.delete(session)
@@ -140,7 +150,7 @@ def delete_session(session_id):
 def update_session(session_id):
     """Modify a session: {"date": "YYYY-MM-DD", "day_number": 2} and/or
     {"routine_day_id": <id> | null}. completion_pct is recomputed."""
-    session = db.session.get(WorkoutSession, session_id)
+    session = get_owned(WorkoutSession, session_id)
     if session is None:
         return jsonify({"error": "Session not found"}), 404
 
@@ -191,7 +201,7 @@ def _num(value):
 @workout_bp.get("/sessions/<int:session_id>/export")
 def export_session(session_id):
     """Download a human-readable .txt summary of the session."""
-    session = db.session.get(WorkoutSession, session_id)
+    session = get_owned(WorkoutSession, session_id)
     if session is None:
         return jsonify({"error": "Session not found"}), 404
 
@@ -208,7 +218,7 @@ def export_session(session_id):
 
     if session.travel_mode:
         for entry in TravelSession.query.filter_by(
-            date=session.date
+            date=session.date, user_id=session.user_id
         ).order_by(TravelSession.id):
             pushups = _num(entry.pushups)
             situps = _num(entry.situps)
@@ -274,7 +284,7 @@ def export_session(session_id):
 
 @workout_bp.get("/sessions/<int:session_id>")
 def get_session(session_id):
-    session = db.session.get(WorkoutSession, session_id)
+    session = get_owned(WorkoutSession, session_id)
     if session is None:
         return jsonify({"error": "Session not found"}), 404
     session.completed_pct = session.compute_completion_pct()
@@ -286,7 +296,7 @@ def get_session(session_id):
 def check_sets(session_id):
     """Check off sets: {"checks": [{"planned_set_id": 3, "checked": true,
     "actual_reps": 12, "actual_weight_lb": 45}, ...]}"""
-    session = db.session.get(WorkoutSession, session_id)
+    session = get_owned(WorkoutSession, session_id)
     if session is None:
         return jsonify({"error": "Session not found"}), 404
     if session.travel_mode:
@@ -354,6 +364,7 @@ def log_travel():
         pushups=data.get("pushups"),
         situps=data.get("situps"),
         notes=data.get("notes"),
+        user_id=effective_user_id(),
     )
     db.session.add(entry)
     db.session.commit()
@@ -363,8 +374,10 @@ def log_travel():
 @workout_bp.get("/travel")
 def list_travel():
     entries = (
-        TravelSession.query.order_by(TravelSession.date.desc(),
-                                     TravelSession.id.desc())
+        TravelSession.query.filter(
+            TravelSession.user_id == effective_user_id()
+        )
+        .order_by(TravelSession.date.desc(), TravelSession.id.desc())
         .limit(20)
         .all()
     )

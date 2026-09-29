@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import Blueprint, current_app, jsonify, request, send_file
 
 from app import db
+from app.auth import effective_user_id, get_owned
 from app.models import MealLog
 from app.nutrition import estimate_nutrition
 
@@ -91,6 +92,7 @@ def log_meal():
     macros, source = _estimate_macros(description, manual)
 
     meal = MealLog(
+        user_id=effective_user_id(),
         photo_path=photo_path,
         description=description,
         calories=macros.get("calories"),
@@ -114,7 +116,10 @@ def list_meals():
     except ValueError:
         return jsonify({"error": "date must be YYYY-MM-DD"}), 400
     meals = (
-        MealLog.query.filter(db.func.date(MealLog.logged_at) == day)
+        MealLog.query.filter(
+            MealLog.user_id == effective_user_id(),
+            db.func.date(MealLog.logged_at) == day,
+        )
         .order_by(MealLog.logged_at.asc())
         .all()
     )
@@ -129,7 +134,10 @@ def daily_totals():
         datetime.strptime(day, "%Y-%m-%d")
     except ValueError:
         return jsonify({"error": "date must be YYYY-MM-DD"}), 400
-    meals = MealLog.query.filter(db.func.date(MealLog.logged_at) == day).all()
+    meals = MealLog.query.filter(
+        MealLog.user_id == effective_user_id(),
+        db.func.date(MealLog.logged_at) == day,
+    ).all()
 
     def total(attr):
         return round(sum(getattr(m, attr) or 0 for m in meals), 1)
@@ -148,7 +156,7 @@ def daily_totals():
 
 @meals_bp.get("/meals/<int:meal_id>/photo")
 def serve_photo(meal_id):
-    meal = db.session.get(MealLog, meal_id)
+    meal = get_owned(MealLog, meal_id)
     if meal is None or not meal.photo_path:
         return jsonify({"error": "Photo not found"}), 404
     full_path = os.path.join(current_app.instance_path, meal.photo_path)
