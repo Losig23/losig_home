@@ -188,7 +188,7 @@ def render_chart_page():
 <html lang="en"><head><meta charset="utf-8">
 <title>Body Weight — losig_home</title>
 <style>
-body{{font-family:system-ui,sans-serif;max-width:960px;margin:2rem auto;
+body{{font-family:system-ui,sans-serif;max-width:1024px;margin:2rem auto;
 padding:0 1rem;color:#111827}}
 .stats{{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}}
 .card{{border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1.25rem}}

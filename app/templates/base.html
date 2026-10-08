@@ -15,7 +15,7 @@
     <a href="{{ item.url }}" class="{% if item.key == active %}active{% endif %}">{{ item.label }}</a>
     {% endfor %}
     {% if current_user.is_authenticated %}
-    <form action="/logout" method="post" class="nav-logout"><button type="submit">Logout</button></form>
+    <form action="/logout" method="post" class="nav-logout" onsubmit="return confirm('Are you sure you want to log out?')"><button type="submit">Logout</button></form>
     {% else %}
     <a href="/login" class="{% if active == 'login' %}active{% endif %}">Login</a>
     {% endif %}

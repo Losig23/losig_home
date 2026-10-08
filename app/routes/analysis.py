@@ -138,7 +138,7 @@ def analyze_exercise(exercise):
 
 
 PAGE_STYLE = """<style>
-body{font-family:system-ui,sans-serif;max-width:960px;margin:2rem auto;
+body{font-family:system-ui,sans-serif;max-width:1024px;margin:2rem auto;
 padding:0 1rem;color:#111827}
 .day{margin-top:2rem}
 .card{border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1rem;
