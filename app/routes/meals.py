@@ -1,11 +1,12 @@
 """Food log: photo upload, nutrition estimates, daily totals."""
+import io
 import os
-import uuid
 from datetime import datetime
 
-from flask import Blueprint, current_app, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_file
 
 from app import db
+from app import storage
 from app.auth import effective_user_id, get_owned
 from app.models import MealLog
 from app.nutrition import estimate_nutrition
@@ -14,12 +15,6 @@ meals_bp = Blueprint("meals", __name__, url_prefix="/api")
 
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
-
-
-def _upload_dir():
-    path = os.path.join(current_app.instance_path, "uploads", "meals")
-    os.makedirs(path, exist_ok=True)
-    return path
 
 
 def _parse_float(value):
@@ -32,7 +27,10 @@ def _parse_float(value):
 
 
 def _save_photo(file_storage):
-    """Validate and store an uploaded image; returns the instance-relative path."""
+    """Validate an uploaded image and store it via the storage backend.
+
+    Returns (photo_ref, None) on success or (None, error_message).
+    """
     filename = file_storage.filename or ""
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -46,11 +44,7 @@ def _save_photo(file_storage):
     if not data:
         return None, "photo is empty"
 
-    stored = f"{uuid.uuid4().hex}{ext}"
-    full_path = os.path.join(_upload_dir(), stored)
-    with open(full_path, "wb") as f:
-        f.write(data)
-    return os.path.join("uploads", "meals", stored), None
+    return storage.save_photo(data, ext), None
 
 
 def _estimate_macros(description, manual):
@@ -159,7 +153,8 @@ def serve_photo(meal_id):
     meal = get_owned(MealLog, meal_id)
     if meal is None or not meal.photo_path:
         return jsonify({"error": "Photo not found"}), 404
-    full_path = os.path.join(current_app.instance_path, meal.photo_path)
-    if not os.path.isfile(full_path):
+    data = storage.load_photo(meal.photo_path)
+    if data is None:
         return jsonify({"error": "Photo not found"}), 404
-    return send_file(full_path)
+    ext = os.path.splitext(meal.photo_path)[1]
+    return send_file(io.BytesIO(data), mimetype=storage.mimetype_for_ext(ext))
