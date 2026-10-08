@@ -376,8 +376,7 @@ def render_travel_page():
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Travel Workouts — losig_home</title>
 <style>
-body{{font-family:system-ui,sans-serif;max-width:1024px;margin:2rem auto;
-padding:0 1rem;color:#111827}}
+body{{font-family:system-ui,sans-serif;color:#111827}}
 .stats{{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}}
 .card{{border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1.25rem}}
 .card b{{font-size:1.4rem}}.card span{{color:#6b7280;font-size:.85rem}}

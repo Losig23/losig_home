@@ -12,8 +12,7 @@ from flask import Blueprint
 live_bp = Blueprint("live", __name__)
 
 BASE_STYLE = """<style>
-body{font-family:system-ui,sans-serif;max-width:1024px;margin:1rem auto;
-padding:0 1rem;color:#111827}
+body{font-family:system-ui,sans-serif;color:#111827}
 button{font-size:1rem;padding:.6rem 1rem;border-radius:8px;
 border:1px solid #d1d5db;background:#f3f4f6;cursor:pointer}
 button.primary{background:#2563eb;color:#fff;border-color:#2563eb}

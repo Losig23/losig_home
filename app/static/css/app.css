@@ -14,6 +14,9 @@
 
 * { box-sizing: border-box; }
 
+/* Reserve scrollbar space so short pages don't shift vs long ones. */
+html { scrollbar-gutter: stable; }
+
 body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   margin: 0;
