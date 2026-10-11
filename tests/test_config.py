@@ -18,14 +18,23 @@ def test_postgresql_scheme_untouched():
     assert _normalize_database_url(url) == url
 
 
-def test_psycopg_v3_dialect_qualifier_stripped():
-    # Neon's SQLAlchemy connection string uses postgresql+psycopg:// (psycopg
-    # v3); we ship psycopg2, so drop the qualifier instead of failing at
-    # engine creation with ModuleNotFoundError: No module named 'psycopg'.
-    assert (
-        _normalize_database_url("postgresql+psycopg://u:p@host:5432/db")
-        == "postgresql://u:p@host:5432/db"
-    )
+def test_all_postgres_url_forms_resolve_dbapi():
+    """Regression: every postgres URL form we might be handed must resolve
+    an installed DBAPI at engine-creation time (no live server needed).
+    Plain ``postgresql://`` uses psycopg2 (SQLAlchemy's default dialect);
+    Neon's ``postgresql+psycopg://`` flavor uses psycopg v3 — we ship both
+    drivers so no form can ModuleNotFoundError at deploy."""
+    import sqlalchemy as sa
+
+    cases = {
+        "postgres://u:p@host:5432/db": "psycopg2",
+        "postgresql://u:p@host:5432/db": "psycopg2",
+        "postgresql+psycopg://u:p@host:5432/db": "psycopg",
+    }
+    for raw, expected_dbapi in cases.items():
+        engine = sa.create_engine(_normalize_database_url(raw))
+        assert engine.dialect.dbapi.__name__ == expected_dbapi, raw
+        engine.dispose()
 
 
 def test_sqlite_default_untouched():
@@ -33,19 +42,6 @@ def test_sqlite_default_untouched():
         _normalize_database_url("sqlite:///losig_home.db")
         == "sqlite:///losig_home.db"
     )
-
-
-def test_normalized_postgres_url_resolves_dbapi():
-    """Regression: the shipped driver must satisfy SQLAlchemy's default
-    ``postgresql://`` dialect. ``create_engine`` imports the DBAPI eagerly,
-    so this fails with ModuleNotFoundError if the driver is missing or
-    mismatched — no live server needed (we never connect)."""
-    import sqlalchemy as sa
-
-    url = _normalize_database_url("postgres://u:p@host:5432/db")
-    engine = sa.create_engine(url)
-    assert engine.dialect.dbapi is not None
-    engine.dispose()
 
 
 def test_config_class_uses_normalized_url(monkeypatch):

@@ -6,15 +6,13 @@ def _normalize_database_url(url):
     """Normalize provider DATABASE_URLs for SQLAlchemy 2.x.
 
     Render and Neon hand out ``postgres://...`` URLs; SQLAlchemy 2.x only
-    accepts the ``postgresql://`` scheme, so rewrite the prefix once. Neon
-    also offers a SQLAlchemy/psycopg-v3 flavor with an explicit ``+psycopg``
-    dialect qualifier — strip it, since we ship psycopg2 (the default
-    ``postgresql://`` dialect).
+    accepts the ``postgresql://`` scheme, so rewrite the prefix once.
+    Neon's SQLAlchemy flavor may carry an explicit ``+psycopg`` (v3) dialect
+    qualifier — pass it through untouched; we ship both drivers so every
+    postgres URL form resolves to an installed DBAPI.
     """
     if url.startswith("postgres://"):
-        url = "postgresql://" + url[len("postgres://"):]
-    if "+psycopg://" in url:
-        url = url.replace("+psycopg://", "://", 1)
+        return "postgresql://" + url[len("postgres://"):]
     return url
 
 
