@@ -18,6 +18,16 @@ def test_postgresql_scheme_untouched():
     assert _normalize_database_url(url) == url
 
 
+def test_psycopg_v3_dialect_qualifier_stripped():
+    # Neon's SQLAlchemy connection string uses postgresql+psycopg:// (psycopg
+    # v3); we ship psycopg2, so drop the qualifier instead of failing at
+    # engine creation with ModuleNotFoundError: No module named 'psycopg'.
+    assert (
+        _normalize_database_url("postgresql+psycopg://u:p@host:5432/db")
+        == "postgresql://u:p@host:5432/db"
+    )
+
+
 def test_sqlite_default_untouched():
     assert (
         _normalize_database_url("sqlite:///losig_home.db")
