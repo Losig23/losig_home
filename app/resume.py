@@ -16,7 +16,7 @@ LOCATION = "Marshalltown, IA → relocating to San Francisco Bay Area"
 OPEN_TO_WORK = "Open to new opportunities"
 EMAIL = "anirudhyarram@gmail.com"
 GITHUB_URL = "https://github.com/Losig23"
-LINKEDIN_URL = None  # TODO: add Ani's LinkedIn profile URL
+LINKEDIN_URL = "https://www.linkedin.com/in/anirudh-yarram-7a38ba18b/"
 
 EXPERIENCE = [
     {
@@ -105,14 +105,6 @@ PROJECTS = [
         "learning, Last.fm scrobble import.",
         "links": [("GitHub", "https://github.com/Losig23/tunesage")],
     },
-    {
-        "name": "Sustainik",
-        "blurb": "Sustainable e-commerce marketplace: Java Spring Boot + "
-        "PostgreSQL, layered controller/service/repository architecture, "
-        "pagination and query optimization cutting catalog response times "
-        "by 40%.",
-        "links": [],
-    },
 ]
 
 SKILLS = [
@@ -152,6 +144,8 @@ PORTFOLIO_STYLES = """
 .portfolio .meta { color: var(--muted); }
 .portfolio .open { color: #15803d; font-weight: 600; }
 .portfolio .links a { margin-right: 1rem; }
+.portfolio h2 { border-bottom: 1px solid var(--line); padding-bottom: 0.4rem;
+  margin-top: 2.25rem; }
 .portfolio .job { margin-bottom: 1.5rem; }
 .portfolio .job h3 { margin-bottom: 0.15rem; }
 .portfolio .job .where { color: var(--muted); font-size: 0.9rem; }
@@ -167,6 +161,8 @@ PORTFOLIO_STYLES = """
 .portfolio .edu { margin-bottom: 0.5rem; }
 .portfolio .edu .detail { color: var(--muted); font-size: 0.9rem; }
 .portfolio hr { margin: 2.5rem 0; border: none; border-top: 1px solid var(--line); }
+.training-log h2 { border-bottom: 1px solid var(--line); padding-bottom: 0.4rem; }
+.training-log h3 { margin-top: 1.5rem; }
 """
 
 

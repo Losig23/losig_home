@@ -18,10 +18,10 @@ def test_public_home_shows_portfolio(anon_client):
         "Neubode",
         "CareTech",
         "TuneSage",
-        "Sustainik",
         "University of Wisconsin",
     ):
         assert needle in body, needle
+    assert "Sustainik" not in body
 
 
 def test_public_home_keeps_training_log(anon_client):
@@ -34,6 +34,7 @@ def test_public_home_contact_links_no_phone(anon_client):
     body = _body(anon_client)
     assert "mailto:anirudhyarram@gmail.com" in body
     assert "https://github.com/Losig23" in body
+    assert "https://www.linkedin.com/in/anirudh-yarram-7a38ba18b/" in body
     # Phone number must never appear on the public page.
     assert "720-4324" not in body
     assert not re.search(r"\(608\)", body)
