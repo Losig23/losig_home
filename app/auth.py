@@ -242,7 +242,10 @@ def api_public_week():
 
 
 def render_public_home():
-    """Server-rendered public page for logged-out visitors."""
+    """Server-rendered public page for logged-out visitors: recruiter-facing
+    portfolio first, then the live training log."""
+    from app.resume import render_portfolio_html
+
     data = public_week_data()
 
     if data["sessions"]:
@@ -291,15 +294,19 @@ def render_public_home():
         meal_html = "<p>No meals logged this week.</p>"
 
     return f"""
-<h1>Ani's training log</h1>
-<p style="color:#6b7280">Last 7 days ({data["start_date"]} → {data["end_date"]}).
-Full history is private — <a href="/login">log in</a> for everything.</p>
-<h2>Workouts ({data["session_count"]} sessions)</h2>
+{render_portfolio_html()}
+<section class="training-log">
+<h2>Training log</h2>
+<p style="color:#6b7280">What I've been up to in the gym — last 7 days
+({data["start_date"]} → {data["end_date"]}). Full history is private —
+<a href="/login">log in</a> for everything.</p>
+<h3>Workouts ({data["session_count"]} sessions)</h3>
 {sess_html}
-<h2>Bodyweight</h2>
+<h3>Bodyweight</h3>
 {bw_html}
-<h2>Food</h2>
+<h3>Food</h3>
 {meal_html}
+</section>
 """
 
 

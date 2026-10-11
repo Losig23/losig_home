@@ -219,11 +219,13 @@ def dashboard():
     from flask_login import current_user
 
     if not current_user.is_authenticated:
-        # Public weekly view: last 7 days only, no photos, no full history.
+        # Public portfolio + weekly training log: no photos, no full history.
+        from app.resume import PORTFOLIO_STYLES
+
         return render_template(
             "base.html",
-            title="Ani's training log",
-            page_styles="",
+            title="Anirudh Yarram — Software Engineer",
+            page_styles=f"<style>{PORTFOLIO_STYLES}</style>",
             content=render_public_home(),
             nav=get_nav(),
             active="home",
