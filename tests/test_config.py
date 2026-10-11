@@ -25,6 +25,19 @@ def test_sqlite_default_untouched():
     )
 
 
+def test_normalized_postgres_url_resolves_dbapi():
+    """Regression: the shipped driver must satisfy SQLAlchemy's default
+    ``postgresql://`` dialect. ``create_engine`` imports the DBAPI eagerly,
+    so this fails with ModuleNotFoundError if the driver is missing or
+    mismatched — no live server needed (we never connect)."""
+    import sqlalchemy as sa
+
+    url = _normalize_database_url("postgres://u:p@host:5432/db")
+    engine = sa.create_engine(url)
+    assert engine.dialect.dbapi is not None
+    engine.dispose()
+
+
 def test_config_class_uses_normalized_url(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgres://u:p@host:5432/db")
     importlib.reload(config)
