@@ -1,4 +1,6 @@
 """SQLAlchemy models for the losig_home workout tracker."""
+from datetime import date
+
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -370,3 +372,27 @@ class MealLog(db.Model):
             "logged_at": self.logged_at.isoformat(),
             "source": self.source,
         }
+
+
+def meal_logged_on(day):
+    """Filter expression: meals logged on calendar date ``day``.
+
+    ``day`` must be a datetime.date, never a string — Postgres has no
+    ``date >= varchar`` operator, so comparing func.date() to a string
+    raises UndefinedFunction in production (SQLite silently coerces and
+    hides the bug, which is how this shipped).
+    """
+    if not isinstance(day, date):
+        raise TypeError(f"meal_logged_on() needs a date, got {type(day).__name__}")
+    return db.func.date(MealLog.logged_at) == day
+
+
+def meal_logged_between(start, end):
+    """Filter expression: meals logged on dates in [start, end], inclusive."""
+    for name, value in (("start", start), ("end", end)):
+        if not isinstance(value, date):
+            raise TypeError(
+                f"meal_logged_between() needs dates, got {name}={type(value).__name__}"
+            )
+    logged = db.func.date(MealLog.logged_at)
+    return db.and_(logged >= start, logged <= end)

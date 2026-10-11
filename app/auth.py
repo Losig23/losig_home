@@ -28,7 +28,7 @@ from flask import (
 from flask_login import LoginManager, current_user, login_user, logout_user
 
 from app import db
-from app.models import BodyWeightLog, MealLog, User, WorkoutSession
+from app.models import BodyWeightLog, MealLog, User, WorkoutSession, meal_logged_between
 
 auth_bp = Blueprint("auth", __name__)
 login_manager = LoginManager()
@@ -206,8 +206,7 @@ def public_week_data():
     meals = (
         MealLog.query.filter(
             MealLog.user_id == uid,
-            db.func.date(MealLog.logged_at) >= start.isoformat(),
-            db.func.date(MealLog.logged_at) <= today.isoformat(),
+            meal_logged_between(start, today),
         )
         .order_by(MealLog.logged_at.asc())
         .all()

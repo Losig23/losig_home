@@ -9,8 +9,7 @@ from datetime import date, timedelta
 
 from flask import Blueprint, render_template
 
-from app import db
-from app.models import Exercise, MealLog, WorkoutSession
+from app.models import Exercise, MealLog, WorkoutSession, meal_logged_on
 from app.routes.analysis import analyze_exercise
 from app.routes.bodyweight import compute_stats as bodyweight_stats
 from app.routes.travel import compute_travel_stats
@@ -234,7 +233,7 @@ def dashboard():
     meals = (
         MealLog.query.filter(
             MealLog.user_id == effective_user_id(),
-            db.func.date(MealLog.logged_at) == today,
+            meal_logged_on(date.today()),
         )
         .order_by(MealLog.logged_at.asc())
         .all()

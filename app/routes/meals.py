@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request, send_file
 from app import db
 from app import storage
 from app.auth import effective_user_id, get_owned
-from app.models import MealLog
+from app.models import MealLog, meal_logged_on
 from app.nutrition import estimate_nutrition
 
 meals_bp = Blueprint("meals", __name__, url_prefix="/api")
@@ -106,13 +106,13 @@ def list_meals():
     """Meals for ?date=YYYY-MM-DD (defaults to today), oldest first."""
     day = request.args.get("date") or datetime.now().date().isoformat()
     try:
-        datetime.strptime(day, "%Y-%m-%d")
+        day_date = datetime.strptime(day, "%Y-%m-%d").date()
     except ValueError:
         return jsonify({"error": "date must be YYYY-MM-DD"}), 400
     meals = (
         MealLog.query.filter(
             MealLog.user_id == effective_user_id(),
-            db.func.date(MealLog.logged_at) == day,
+            meal_logged_on(day_date),
         )
         .order_by(MealLog.logged_at.asc())
         .all()
@@ -125,12 +125,12 @@ def daily_totals():
     """Macro totals for ?date=YYYY-MM-DD (defaults to today)."""
     day = request.args.get("date") or datetime.now().date().isoformat()
     try:
-        datetime.strptime(day, "%Y-%m-%d")
+        day_date = datetime.strptime(day, "%Y-%m-%d").date()
     except ValueError:
         return jsonify({"error": "date must be YYYY-MM-DD"}), 400
     meals = MealLog.query.filter(
         MealLog.user_id == effective_user_id(),
-        db.func.date(MealLog.logged_at) == day,
+        meal_logged_on(day_date),
     ).all()
 
     def total(attr):
