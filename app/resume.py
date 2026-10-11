@@ -12,7 +12,7 @@ TAGLINE = (
     "at Mechdyne, previously a founding engineer at a startup. I build "
     "reliable systems end to end, from data pipelines to the UI."
 )
-LOCATION = "Marshalltown, IA → relocating to San Francisco Bay Area"
+LOCATION = "Marshalltown, IA"
 OPEN_TO_WORK = "Open to new opportunities"
 EMAIL = "anirudhyarram@gmail.com"
 GITHUB_URL = "https://github.com/Losig23"
