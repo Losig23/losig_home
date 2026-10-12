@@ -3,6 +3,7 @@ flask-sqlalchemy>=3.1
 gunicorn>=21.2
 python-dotenv>=1.0
 pytest>=8.0
+Flask-Limiter>=3.0
 Flask-Login>=0.6.3
 alembic>=1.13
 boto3>=1.34

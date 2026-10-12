@@ -169,6 +169,10 @@ def create_app(config_overrides=None):
     app.register_blueprint(travel_bp)
     app.register_blueprint(workout_bp)
 
+    from app.security import init_security
+
+    init_security(app)
+
     @app.before_request
     def _require_login():
         """Default-deny auth gate: everything needs a login except the
