@@ -148,6 +148,7 @@ def create_app(config_overrides=None):
 
     from app.routes.bodyweight import bodyweight_bp
     from app.routes.frontend import frontend_bp
+    from app.routes.life import life_bp
     from app.routes.live import live_bp
     from app.routes.meals import meals_bp
     from app.routes.progress import progress_bp
@@ -160,6 +161,7 @@ def create_app(config_overrides=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(bodyweight_bp)
     app.register_blueprint(frontend_bp)
+    app.register_blueprint(life_bp)
     app.register_blueprint(live_bp)
     app.register_blueprint(meals_bp)
     app.register_blueprint(progress_bp)

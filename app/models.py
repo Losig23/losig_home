@@ -411,3 +411,66 @@ class ListeningCache(db.Model):
     key = db.Column(db.String(40), primary_key=True)
     payload = db.Column(db.JSON, nullable=False)
     fetched_at = db.Column(db.DateTime, nullable=False)
+
+
+#: Platforms offered on the manual game log. Kept as a plain tuple so the
+#: API and the frontend dropdown share one source of truth.
+GAME_PLATFORMS = ("PS5", "PS4", "Phone", "PC", "Switch", "Other")
+
+
+class GameSession(db.Model):
+    """Manual gaming log: what was played, on which platform, when.
+
+    Deliberately API-free (Ani declined the unofficial PSN wrapper): one
+    quick-add form covers PS5, phone emulators, Minecraft on PC, and
+    anything else. The future Unity apartment game reads the normalized
+    ``/api/gaming/recent`` endpoint built on this table — it never needs
+    to know where an entry came from.
+    """
+
+    __tablename__ = "game_session"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    platform = db.Column(db.String(20), nullable=False, default="PS5")
+    played_on = db.Column(db.Date, nullable=False)
+    duration_minutes = db.Column(db.Integer, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("app_user.id"), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "platform": self.platform,
+            "played_on": self.played_on.isoformat(),
+            "duration_minutes": self.duration_minutes,
+            "notes": self.notes,
+        }
+
+
+class DiaryEntry(db.Model):
+    """One free-text diary entry per day (upsert by date, like bodyweight).
+
+    The "things I did" log for everything that isn't a workout, meal, or
+    game. Strictly private: never included in any public payload.
+    """
+
+    __tablename__ = "diary_entry"
+
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("app_user.id"), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "date", name="uq_diary_user_date"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date.isoformat(),
+            "text": self.text,
+        }

@@ -278,6 +278,140 @@ def food_page():
     return _page("Food Log", _food_body(), active="food")
 
 
+def _gaming_body():
+    from app.models import GAME_PLATFORMS
+    options = "".join(
+        f'<option value="{p}"{" selected" if p == "PS5" else ""}>{p}</option>'
+        for p in GAME_PLATFORMS
+    )
+    return f"""
+<h1>Gaming Log</h1>
+<p style="color:#6b7280">What you played — PS5, phone emulators, Minecraft, anything. Feeds the calendar and the apartment game's monitor.</p>
+<form id="game-form" class="form-row" style="margin-bottom:1.5rem">
+  <label>Game <input type="text" id="g-title" placeholder="e.g. Elden Ring" required maxlength="200"></label>
+  <label>Platform <select id="g-platform">{options}</select></label>
+  <label>Date <input type="date" id="g-date"></label>
+  <label>Minutes <input type="number" id="g-minutes" min="0" placeholder="optional"></label>
+  <label style="flex:1;min-width:200px">Notes <input type="text" id="g-notes" placeholder="optional" maxlength="500"></label>
+  <button class="btn" type="submit">Log it</button>
+</form>
+<div id="game-list"></div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({{"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}}[c]));
+$("g-date").value = new Date().toISOString().slice(0, 10);
+
+async function loadGames() {{
+  const res = await fetch("/api/gaming");
+  const games = await res.json();
+  $("game-list").innerHTML = games.length ? games.map(g => `
+    <div class="meal" data-id="${{g.id}}">
+      <div style="flex:1;min-width:0">
+        <div><b>${{esc(g.title)}}</b><span class="src">${{esc(g.platform)}}</span></div>
+        <div class="macros">${{esc(g.played_on)}}${{g.duration_minutes ? " &middot; " + g.duration_minutes + " min" : ""}}${{g.notes ? " &middot; " + esc(g.notes) : ""}}</div>
+      </div>
+      <div class="sess-actions">
+        <button class="btn secondary g-delete" type="button">Delete</button>
+      </div>
+    </div>`).join("")
+    : '<p style="color:#6b7280">Nothing logged yet.</p>';
+  $("game-list").querySelectorAll(".g-delete").forEach(btn => {{
+    btn.addEventListener("click", async () => {{
+      const id = btn.closest(".meal").dataset.id;
+      if (!confirm("Delete this entry?")) return;
+      const res = await fetch(`/api/gaming/${{id}}`, {{method: "DELETE"}});
+      if (res.ok) loadGames();
+      else alert("Delete failed: " + res.status);
+    }});
+  }});
+}}
+
+$("game-form").addEventListener("submit", async e => {{
+  e.preventDefault();
+  const minutes = $("g-minutes").value;
+  const payload = {{
+    title: $("g-title").value.trim(),
+    platform: $("g-platform").value,
+    played_on: $("g-date").value,
+    notes: $("g-notes").value.trim(),
+  }};
+  if (minutes !== "") payload.duration_minutes = parseInt(minutes, 10);
+  const res = await fetch("/api/gaming", {{
+    method: "POST",
+    headers: {{"Content-Type": "application/json"}},
+    body: JSON.stringify(payload),
+  }});
+  if (res.ok) {{
+    $("g-title").value = ""; $("g-minutes").value = ""; $("g-notes").value = "";
+    loadGames();
+  }} else {{
+    const err = await res.json().catch(() => ({{}}));
+    alert("Error: " + (err.error || res.status));
+  }}
+}});
+loadGames();
+</script>
+"""
+
+
+@frontend_bp.get("/gaming")
+def gaming_page():
+    return _page("Gaming Log", _gaming_body(), active="gaming")
+
+
+def _diary_body():
+    return """
+<h1>Diary</h1>
+<p style="color:#6b7280">One entry per day — tasks done, things that happened, anything. Private: it never appears on any public page.</p>
+<div class="form-row" style="margin-bottom:1rem">
+  <label>Date <input type="date" id="d-date"></label>
+  <span id="d-status" style="color:#6b7280;align-self:center"></span>
+</div>
+<textarea id="d-text" rows="12" style="width:100%;box-sizing:border-box;padding:0.75rem;font:inherit" placeholder="What did today hold?"></textarea>
+<div style="margin-top:0.75rem">
+  <button class="btn" id="d-save" type="button">Save entry</button>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+$("d-date").value = new Date().toISOString().slice(0, 10);
+
+async function loadEntry() {
+  const day = $("d-date").value;
+  const res = await fetch(`/api/diary/${day}`);
+  const entry = await res.json();
+  $("d-text").value = entry ? entry.text : "";
+  $("d-status").textContent = entry ? "Entry loaded." : "No entry for this day yet.";
+}
+
+$("d-date").addEventListener("change", loadEntry);
+
+$("d-save").addEventListener("click", async () => {
+  const day = $("d-date").value;
+  const res = await fetch(`/api/diary/${day}`, {
+    method: "PUT",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({text: $("d-text").value}),
+  });
+  if (res.ok) {
+    const entry = await res.json();
+    $("d-status").textContent = entry ? "Saved." : "Entry cleared.";
+  } else {
+    const err = await res.json().catch(() => ({}));
+    alert("Error: " + (err.error || res.status));
+  }
+});
+loadEntry();
+</script>
+"""
+
+
+@frontend_bp.get("/diary")
+def diary_page():
+    return _page("Diary", _diary_body(), active="diary")
+
+
+
 _MUSIC_STYLES = """
 <style>
 .music-list { list-style: none; padding: 0; margin: 0.5rem 0 1.5rem; }
@@ -380,6 +514,15 @@ _CALENDAR_STYLES = """
 .cal-badge{position:absolute;bottom:.3rem;right:.4rem;background:var(--accent);color:#fff;
   font-size:.7rem;border-radius:999px;padding:.05rem .45rem}
 .cal-badge.travel{background:#0d9488;bottom:1.35rem}
+.cal-badge.gaming{background:#7c3aed;bottom:2.4rem}
+.cal-badge.meal{background:#ea580c;bottom:3.45rem}
+.cal-badge.diary{background:#4b5563;bottom:4.5rem}
+.gaming-tag{display:inline-block;background:#7c3aed;color:#fff;font-size:.7rem;
+  border-radius:999px;padding:.05rem .5rem;margin-left:.4rem;vertical-align:middle}
+.meal-tag{display:inline-block;background:#ea580c;color:#fff;font-size:.7rem;
+  border-radius:999px;padding:.05rem .5rem;margin-left:.4rem;vertical-align:middle}
+.diary-tag{display:inline-block;background:#4b5563;color:#fff;font-size:.7rem;
+  border-radius:999px;padding:.05rem .5rem;margin-left:.4rem;vertical-align:middle}
 .travel-tag{display:inline-block;background:#0d9488;color:#fff;font-size:.7rem;
   border-radius:999px;padding:.05rem .5rem;margin-left:.4rem;vertical-align:middle}
 .sess-actions{display:flex;flex-direction:column;gap:.4rem}
@@ -394,8 +537,8 @@ _CALENDAR_STYLES = """
 
 def _calendar_body():
     return """
-<h1>Training Calendar</h1>
-<p style="color:#6b7280">Workouts and travel days by date — open, export, modify, or delete them.</p>
+<h1>Life Calendar</h1>
+<p style="color:#6b7280">Everything by date — workouts, travel days, meals, gaming, and diary entries.</p>
 <div class="cal-controls">
   <button class="btn secondary" id="cal-prev">&larr; Prev</button>
   <div id="cal-title"></div>
@@ -426,15 +569,30 @@ async function loadRoutine() {
 }
 
 async function loadMonth() {
-  const [wRes, tRes] = await Promise.all([
+  const [wRes, tRes, gRes, mRes, dRes] = await Promise.all([
     fetch(`/api/sessions/calendar?year=${viewY}&month=${viewM}`),
     fetch(`/api/travel/calendar?year=${viewY}&month=${viewM}`),
+    fetch(`/api/gaming/calendar?year=${viewY}&month=${viewM}`),
+    fetch(`/api/meals/calendar?year=${viewY}&month=${viewM}`),
+    fetch(`/api/diary/calendar?year=${viewY}&month=${viewM}`),
   ]);
   monthData = await wRes.json();
   const travelDays = await tRes.json();
   for (const [iso, entries] of Object.entries(travelDays)) {
     monthData[iso] = (monthData[iso] || []).concat(
       entries.map(e => ({...e, kind: "travel"})));
+  }
+  const gameDays = await gRes.json();
+  for (const [iso, entries] of Object.entries(gameDays)) {
+    monthData[iso] = (monthData[iso] || []).concat(entries);
+  }
+  const mealDays = await mRes.json();
+  for (const [iso, summary] of Object.entries(mealDays)) {
+    monthData[iso] = (monthData[iso] || []).concat([summary]);
+  }
+  const diaryDays = await dRes.json();
+  for (const iso of Object.keys(diaryDays)) {
+    monthData[iso] = (monthData[iso] || []).concat([{kind: "diary", date: iso}]);
   }
   renderGrid();
   renderPanel();
@@ -452,15 +610,21 @@ function renderGrid() {
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = isoOf(viewY, viewM, d);
     const entries = monthData[iso] || [];
-    const nW = entries.filter(e => e.kind !== "travel").length;
+    const nW = entries.filter(e => !e.kind).length;
     const nT = entries.filter(e => e.kind === "travel").length;
+    const nG = entries.filter(e => e.kind === "gaming").length;
+    const nM = entries.filter(e => e.kind === "meal").length;
+    const hasD = entries.some(e => e.kind === "diary");
     const cls = ["cal-cell"];
     if (iso === todayIso) cls.push("today");
     if (iso === selectedDay) cls.push("selected");
     if (entries.length) cls.push("has-sessions");
     const badges =
       (nW ? `<span class="cal-badge">${nW}</span>` : "") +
-      (nT ? `<span class="cal-badge travel">${nT} travel</span>` : "");
+      (nT ? `<span class="cal-badge travel">${nT} travel</span>` : "") +
+      (nG ? `<span class="cal-badge gaming">${nG} game</span>` : "") +
+      (nM ? `<span class="cal-badge meal">${nM} meal</span>` : "") +
+      (hasD ? `<span class="cal-badge diary">diary</span>` : "");
     cells += `<div class="${cls.join(" ")}" data-day="${iso}">` +
       `<span class="cal-num">${d}</span>${badges}</div>`;
   }
@@ -505,6 +669,54 @@ function travelCard(t) {
   </div>`;
 }
 
+function cardFor(e) {
+  if (e.kind === "travel") return travelCard(e);
+  if (e.kind === "gaming") return gamingCard(e);
+  if (e.kind === "meal") return mealDayCard(e);
+  if (e.kind === "diary") return diaryCard(e);
+  return sessionCard(e);
+}
+
+function gamingCard(g) {
+  return `
+  <div class="meal" data-id="${g.id}" data-kind="gaming">
+    <div style="flex:1;min-width:0">
+      <div><b>${esc(g.title)}</b><span class="gaming-tag">game</span><span class="src">${esc(g.platform)}</span></div>
+      <div class="macros">${g.duration_minutes ? g.duration_minutes + " min" : "—"}${g.notes ? " &middot; " + esc(g.notes) : ""}</div>
+    </div>
+    <div class="sess-actions">
+      <a class="btn secondary" href="/gaming">Open</a>
+      <button class="btn secondary g-delete" type="button">Delete</button>
+    </div>
+  </div>`;
+}
+
+function mealDayCard(m) {
+  return `
+  <div class="meal">
+    <div style="flex:1;min-width:0">
+      <div><b>Food</b><span class="meal-tag">meals</span></div>
+      <div class="macros">${m.meal_count} meal${m.meal_count === 1 ? "" : "s"} &middot; ${m.calories} cal</div>
+    </div>
+    <div class="sess-actions">
+      <a class="btn secondary" href="/food">Open</a>
+    </div>
+  </div>`;
+}
+
+function diaryCard(d) {
+  return `
+  <div class="meal">
+    <div style="flex:1;min-width:0">
+      <div><b>Diary</b><span class="diary-tag">diary</span></div>
+      <div class="macros">Entry written — open to read or edit.</div>
+    </div>
+    <div class="sess-actions">
+      <a class="btn secondary" href="/diary">Open</a>
+    </div>
+  </div>`;
+}
+
 function sessionCard(s) {
   const name = s.travel_mode ? "Travel session" : esc(s.day_name || "No routine day");
   const dayTag = s.day_number ? `<span class="src">Day ${s.day_number}</span>` : "";
@@ -544,8 +756,16 @@ function renderPanel() {
       '<p style="color:#6b7280">No sessions logged on this day.</p>';
     return;
   }
-  box.innerHTML = `<h2>${esc(selectedDay)}</h2>` + sessions.map(
-    s => s.kind === "travel" ? travelCard(s) : sessionCard(s)).join("");
+  box.innerHTML = `<h2>${esc(selectedDay)}</h2>` + sessions.map(cardFor).join("");
+  box.querySelectorAll('.meal[data-kind="gaming"]').forEach(card => {
+    const id = card.dataset.id;
+    card.querySelector(".g-delete").addEventListener("click", async () => {
+      if (!confirm("Delete this game entry?")) return;
+      const res = await fetch(`/api/gaming/${id}`, {method: "DELETE"});
+      if (res.ok) { await loadMonth(); }
+      else { alert("Delete failed: " + res.status); }
+    });
+  });
   box.querySelectorAll('.meal[data-kind="travel"]').forEach(card => {
     const id = card.dataset.id;
     const mod = card.querySelector(".sess-modify");

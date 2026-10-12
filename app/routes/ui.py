@@ -21,6 +21,8 @@ NAV = [
     {"key": "travel", "label": "Travel", "url": "/travel"},
     {"key": "calendar", "label": "Calendar", "url": "/calendar"},
     {"key": "food", "label": "Food", "url": "/food"},
+    {"key": "gaming", "label": "Gaming", "url": "/gaming"},
+    {"key": "diary", "label": "Diary", "url": "/diary"},
     {"key": "music", "label": "Music", "url": "/music"},
 ]
 
