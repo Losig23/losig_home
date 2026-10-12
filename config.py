@@ -26,3 +26,7 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     # Meal photo uploads are capped at 10MB (413s anything bigger).
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024
+    # Last.fm read-only integration (weekly charts + recent tracks, display
+    # only). Unset -> the music section is omitted, nothing breaks.
+    LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY")
+    LASTFM_USERNAME = os.environ.get("LASTFM_USERNAME")

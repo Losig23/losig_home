@@ -163,6 +163,13 @@ PORTFOLIO_STYLES = """
 .portfolio hr { margin: 2.5rem 0; border: none; border-top: 1px solid var(--line); }
 .training-log h2 { border-bottom: 1px solid var(--line); padding-bottom: 0.4rem; }
 .training-log h3 { margin-top: 1.5rem; }
+.music-section h2 { border-bottom: 1px solid var(--line); padding-bottom: 0.4rem;
+  margin-top: 2.25rem; }
+.music-section .music-list { list-style: none; padding: 0; margin: 0.5rem 0 1.5rem; }
+.music-section .music-list li { padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line); }
+.music-section .music-list li:last-child { border-bottom: none; }
+.music-section h3 { margin-top: 1.5rem; }
 """
 
 

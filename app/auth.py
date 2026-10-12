@@ -293,6 +293,8 @@ def render_public_home():
     else:
         meal_html = "<p>No meals logged this week.</p>"
 
+    music_html = _music_section_html()
+
     return f"""
 {render_portfolio_html()}
 <section class="training-log">
@@ -307,8 +309,47 @@ def render_public_home():
 <h3>Food</h3>
 {meal_html}
 </section>
+{music_html}
 """
 
 
 def _num(value):
     return "—" if value is None else f"{value:g}"
+
+
+def _music_section_html():
+    """Public 'This week in music' section. Empty string when Last.fm isn't
+    configured or has no data — the page never breaks on music."""
+    from app import listening
+
+    tracks = listening.weekly_tracks(limit=5)
+    artists = listening.weekly_artists(limit=5)
+    if not tracks and not artists:
+        return ""
+    parts = ['<section class="music-section">', '<h2>This week in music</h2>']
+    if tracks:
+        items = "".join(
+            "<li>{title} — <span class=\"macros\">{artist}</span> "
+            "<span class=\"macros\">({plays} plays)</span></li>".format(
+                title=html.escape(t["title"]),
+                artist=html.escape(t["artist"]),
+                plays=t["playcount"],
+            )
+            for t in tracks
+        )
+        parts.append(f"<h3>Top tracks</h3><ul class=\"music-list\">{items}</ul>")
+    if artists:
+        items = "".join(
+            "<li>{name} <span class=\"macros\">({plays} plays)</span></li>".format(
+                name=html.escape(a["name"]),
+                plays=a["playcount"],
+            )
+            for a in artists
+        )
+        parts.append(f"<h3>Top artists</h3><ul class=\"music-list\">{items}</ul>")
+    parts.append(
+        '<p class="macros">Listening data by '
+        '<a href="https://www.last.fm">Last.fm</a>.</p>'
+    )
+    parts.append('</section>')
+    return "\n".join(parts)

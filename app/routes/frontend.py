@@ -278,6 +278,89 @@ def food_page():
     return _page("Food Log", _food_body(), active="food")
 
 
+_MUSIC_STYLES = """
+<style>
+.music-list { list-style: none; padding: 0; margin: 0.5rem 0 1.5rem; }
+.music-list li { padding: 0.45rem 0; border-bottom: 1px solid var(--line); }
+.music-list li:last-child { border-bottom: none; }
+.music-rank { display: inline-block; width: 1.75rem; color: var(--muted); }
+.music-plays { color: var(--muted); font-size: 0.85rem; }
+</style>
+"""
+
+
+def _music_body():
+    from app import listening
+
+    if not listening.configured():
+        return (
+            "<h1>Music</h1>"
+            "<p>Listening stats aren't configured yet. Set "
+            "<code>LASTFM_API_KEY</code> and <code>LASTFM_USERNAME</code> "
+            "in the environment (see .env.example).</p>"
+        )
+    tracks = listening.weekly_tracks(limit=10) or []
+    artists = listening.weekly_artists(limit=10) or []
+    recent = listening.recent_tracks(limit=30) or []
+
+    def _track_list(items):
+        rows = "".join(
+            "<li><span class=\"music-rank\">{i}.</span>"
+            "<a href=\"{url}\">{title}</a> — {artist} "
+            "<span class=\"music-plays\">({plays} plays)</span></li>".format(
+                i=i,
+                url=html.escape(t["url"] or "#"),
+                title=html.escape(t["title"]),
+                artist=html.escape(t["artist"]),
+                plays=t["playcount"],
+            )
+            for i, t in enumerate(items, 1)
+        )
+        return f"<ul class=\"music-list\">{rows}</ul>" if rows else "<p>No data this week.</p>"
+
+    def _artist_list(items):
+        rows = "".join(
+            "<li><span class=\"music-rank\">{i}.</span>"
+            "<a href=\"{url}\">{name}</a> "
+            "<span class=\"music-plays\">({plays} plays)</span></li>".format(
+                i=i,
+                url=html.escape(a["url"] or "#"),
+                name=html.escape(a["name"]),
+                plays=a["playcount"],
+            )
+            for i, a in enumerate(items, 1)
+        )
+        return f"<ul class=\"music-list\">{rows}</ul>" if rows else "<p>No data this week.</p>"
+
+    def _recent_list(items):
+        rows = "".join(
+            "<li><a href=\"{url}\">{title}</a> — {artist} "
+            "<span class=\"music-plays\">{when}</span></li>".format(
+                url=html.escape(t["url"] or "#"),
+                title=html.escape(t["title"]),
+                artist=html.escape(t["artist"]),
+                when=html.escape(t["played_at"] or ""),
+            )
+            for t in items
+        )
+        return f"<ul class=\"music-list\">{rows}</ul>" if rows else "<p>No recent scrobbles.</p>"
+
+    return (
+        "<h1>Music</h1>"
+        "<p style=\"color:#6b7280\">What I've been listening to — "
+        "via <a href=\"https://www.last.fm\">Last.fm</a>.</p>"
+        "<h2>Top tracks this week</h2>" + _track_list(tracks) +
+        "<h2>Top artists this week</h2>" + _artist_list(artists) +
+        "<h2>Recently played</h2>" + _recent_list(recent)
+    )
+
+
+@frontend_bp.get("/music")
+def music_page():
+    return _page("Music", _music_body(), active="music",
+                 page_styles=_MUSIC_STYLES)
+
+
 _CALENDAR_STYLES = """
 <style>
 .cal-controls{display:flex;align-items:center;gap:1rem;margin:1rem 0}

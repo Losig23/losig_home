@@ -21,6 +21,7 @@ NAV = [
     {"key": "travel", "label": "Travel", "url": "/travel"},
     {"key": "calendar", "label": "Calendar", "url": "/calendar"},
     {"key": "food", "label": "Food", "url": "/food"},
+    {"key": "music", "label": "Music", "url": "/music"},
 ]
 
 NAV_PUBLIC = [

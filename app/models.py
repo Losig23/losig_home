@@ -396,3 +396,18 @@ def meal_logged_between(start, end):
             )
     logged = db.func.date(MealLog.logged_at)
     return db.and_(logged >= start, logged <= end)
+
+
+class ListeningCache(db.Model):
+    """Tiny cache for Last.fm reads (weekly charts, recent tracks).
+
+    The app never stores scrobbles — every view is a cached API read, so
+    this table holds a handful of rows: one per cache key. ``fetched_at``
+    is naive UTC, matching the rest of the codebase.
+    """
+
+    __tablename__ = "listening_cache"
+
+    key = db.Column(db.String(40), primary_key=True)
+    payload = db.Column(db.JSON, nullable=False)
+    fetched_at = db.Column(db.DateTime, nullable=False)
