@@ -24,10 +24,12 @@ NAV = [
     {"key": "gaming", "label": "Gaming", "url": "/gaming"},
     {"key": "diary", "label": "Diary", "url": "/diary"},
     {"key": "music", "label": "Music", "url": "/music"},
+    {"key": "game", "label": "Game", "url": "/game"},
 ]
 
 NAV_PUBLIC = [
     {"key": "home", "label": "Home", "url": "/"},
+    {"key": "game", "label": "Game", "url": "/game"},
 ]
 
 
