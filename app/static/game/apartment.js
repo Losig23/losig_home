@@ -57,18 +57,18 @@ export const WALLS = [
 
 // Floor zones drawn over the carpet base: [centerX, centerZ, w, d, color].
 export const FLOORS = [
-  [23, 3.25, 13, 6.5, 0x9a8a78],     // kitchen + dining vinyl
-  [14.25, 3.25, 4.5, 6.5, 0x8f979b], // bath tile
-  [10.43, 3, 3.15, 6, 0x8f979b],     // tub alcove tile
+  [14.25, 3.25, 4.5, 6.5, 0xcfd4d6], // bath tile
+  [10.43, 3, 3.15, 6, 0xcfd4d6],     // tub alcove tile
 ];
 
 // Furniture: x/z = center, w/d footprint, h height, y = base height.
 // shape: box | cyl (r = w/2) | cone (r = w/2). rx = tilt radians.
-// Pieces with y >= 4 (wall cabinets, AC, lamp heads) don't block walking.
+// Pieces with y >= 4 (lamp heads, shades) don't block walking.
+// wall: true = mounted on/in a wall; clipped to the cutaway wall height (world.js).
 export const FURNITURE = [
   // ---- closet (not enterable; two sliding doors) ----
-  { n: "closet-door-l", x: 2.8, z: 6.33, w: 3.6, d: 0.15, h: 6.8, c: 0x5a3622 },
-  { n: "closet-door-r", x: 6.0, z: 6.46, w: 3.6, d: 0.15, h: 6.8, c: 0x4a2c1c },
+  { n: "closet-door-l", x: 2.8, z: 6.33, w: 3.6, d: 0.15, h: 6.8, c: 0x5a3622, wall: true },
+  { n: "closet-door-r", x: 6.0, z: 6.46, w: 3.6, d: 0.15, h: 6.8, c: 0x4a2c1c, wall: true },
 
   // ---- my room: brass bed under the south window, teal comforter ----
   { n: "bed-frame", x: 5.4, z: 16.4, w: 5.2, d: 6.4, h: 1.1, c: 0x5e5a55 },
@@ -77,29 +77,29 @@ export const FURNITURE = [
   { n: "pillow", x: 4.3, z: 18.7, w: 2.3, d: 1.1, h: 0.4, y: 1.9, c: 0x4d5156 },
   { n: "headboard", x: 5.4, z: 19.65, w: 5.2, d: 0.15, h: 4.2, c: 0xc9a24b },
   { n: "nightstand", x: 9.1, z: 18.8, w: 1.6, d: 1.4, h: 2.0, c: 0x6b4a2f },
-  { n: "room-window", x: 5.75, z: 20, w: 7.5, d: 0.6, h: 3.4, y: 3, c: 0xbcd3e0 },
+  { n: "room-window", x: 5.75, z: 20, w: 7.5, d: 0.6, h: 3.4, y: 3, c: 0xbcd3e0, wall: true },
 
   // ---- bath: tub on the west (in the closet notch), toilet + vanity east ----
   { n: "tub", x: 10.45, z: 3.0, w: 2.7, d: 5.6, h: 1.6, c: 0xf4f4f4 },
   { n: "tub-basin", x: 10.45, z: 3.0, w: 2.1, d: 5.0, h: 0.05, y: 1.6, c: 0xdfe6ea },
-  { n: "shower-curtain", x: 11.85, z: 2.4, w: 0.08, d: 4.0, h: 4.9, y: 1.7, c: 0x93a9cb },
+  { n: "shower-curtain", x: 11.85, z: 2.4, w: 0.08, d: 4.0, h: 4.9, y: 1.7, c: 0x93a9cb, wall: true },
   { n: "toilet-base", x: 15.4, z: 1.5, w: 1.4, d: 1.8, h: 1.4, c: 0xf4f4f4 },
   { n: "toilet-tank", x: 15.4, z: 0.6, w: 1.6, d: 0.6, h: 2.6, c: 0xf4f4f4 },
   { n: "vanity", x: 15.5, z: 3.7, w: 1.6, d: 2.6, h: 2.8, c: 0xe8e2d4 },
   { n: "sink", x: 15.4, z: 3.7, w: 1.1, d: 1.1, h: 0.15, y: 2.8, c: 0xffffff, shape: "cyl" },
-  { n: "mirror", x: 16.2, z: 3.7, w: 0.08, d: 2.2, h: 2.4, y: 4.0, c: 0xc9d6dd },
+  { n: "mirror", x: 16.2, z: 3.7, w: 0.08, d: 2.2, h: 2.4, y: 4.0, c: 0xc9d6dd, wall: true },
 
   // ---- kitchen: sink counter on the north wall, stove + fridge facing it ----
   { n: "counter", x: 20.4, z: 1.2, w: 7.3, d: 2.0, h: 2.9, c: 0xb98a5a },
   { n: "counter-top", x: 20.4, z: 1.2, w: 7.5, d: 2.2, h: 0.15, y: 2.9, c: 0xe6e6e3 },
   { n: "dishwasher", x: 17.65, z: 2.25, w: 1.9, d: 0.06, h: 2.7, y: 0.1, c: 0xeee6d2 },
   { n: "sink-basin", x: 20.4, z: 1.2, w: 2.4, d: 1.3, h: 0.08, y: 3.05, c: 0x8a8f94 },
-  { n: "uppers-n", x: 20.3, z: 0.75, w: 7.4, d: 1.2, h: 2.6, y: 4.6, c: 0xb98a5a },
+  { n: "uppers-n", x: 20.3, z: 0.75, w: 7.4, d: 1.2, h: 2.6, y: 4.6, c: 0xb98a5a, wall: true },
   { n: "stove", x: 18.75, z: 5.25, w: 2.5, d: 2.1, h: 3.0, c: 0xf2f0eb },
   { n: "stove-top", x: 18.75, z: 5.25, w: 2.5, d: 2.1, h: 0.12, y: 3.0, c: 0x2a2a2e },
   { n: "stove-back", x: 18.75, z: 6.1, w: 2.5, d: 0.3, h: 0.9, y: 3.0, c: 0xf2f0eb },
   { n: "fridge", x: 21.7, z: 5.0, w: 2.6, d: 2.6, h: 5.6, c: 0xeef0f2 },
-  { n: "uppers-s", x: 20.2, z: 5.75, w: 7.2, d: 1.2, h: 1.9, y: 6.0, c: 0xb98a5a },
+  { n: "uppers-s", x: 20.2, z: 5.75, w: 7.2, d: 1.2, h: 1.9, y: 6.0, c: 0xb98a5a, wall: true },
   { n: "trash-can", x: 24.6, z: 0.8, w: 1.0, d: 1.0, h: 2.2, c: 0x232326, shape: "cyl" },
 
   // ---- dining: round table, two red chairs, drawer tower ----
@@ -112,7 +112,7 @@ export const FURNITURE = [
   { n: "produce-box", x: 28.8, z: 0.85, w: 1.1, d: 1.2, h: 0.8, y: 2.8, c: 0xc49a6c },
 
   // ---- entry: front door, mat, shoe rack, tree lamp, ironing board ----
-  { n: "main-door", x: 30.75, z: 0.3, w: 2.1, d: 0.2, h: 6.8, c: 0x3b2419 },
+  { n: "main-door", x: 30.75, z: 0.3, w: 2.1, d: 0.2, h: 6.8, c: 0x3b2419, wall: true },
   { n: "door-mat", x: 30.6, z: 1.6, w: 1.6, d: 1.1, h: 0.04, y: 0.01, c: 0x5a5048 },
   { n: "shoe-rack", x: 31.4, z: 5.2, w: 0.7, d: 3.4, h: 3.4, c: 0x202224 },
   { n: "shoe-tray", x: 31.4, z: 4.6, w: 0.7, d: 2.0, h: 0.5, y: 3.4, c: 0xf5f5f5 },
@@ -155,10 +155,10 @@ export const FURNITURE = [
   { n: "ps5-core", x: 30.6, z: 18.2, w: 1.0, d: 0.4, h: 0.1, y: 0.4, c: 0x202224 },
 
   // south wall: blinds, sliding balcony door, AC unit
-  { n: "blinds", x: 23.6, z: 19.68, w: 2.2, d: 0.08, h: 6.6, y: 0.3, c: 0xedebe6 },
-  { n: "balcony-frame", x: 25.9, z: 20, w: 2.4, d: 0.4, h: 6.8, c: 0xf4f2ec },
-  { n: "balcony-glass", x: 25.9, z: 20, w: 1.9, d: 0.5, h: 5.3, y: 1.0, c: 0xa8c8d8 },
-  { n: "wall-ac", x: 30.75, z: 19.55, w: 1.9, d: 0.9, h: 1.4, y: 5.2, c: 0xc9c4b8 },
+  { n: "blinds", x: 23.6, z: 19.68, w: 2.2, d: 0.08, h: 6.6, y: 0.3, c: 0xedebe6, wall: true },
+  { n: "balcony-frame", x: 25.9, z: 20, w: 2.4, d: 0.4, h: 6.8, c: 0xf4f2ec, wall: true },
+  { n: "balcony-glass", x: 25.9, z: 20, w: 1.9, d: 0.5, h: 5.3, y: 1.0, c: 0xa8c8d8, wall: true },
+  { n: "wall-ac", x: 30.75, z: 19.55, w: 1.9, d: 0.9, h: 1.3, y: 2.65, c: 0xc9c4b8, wall: true },
 
   // ---- guest room: bed on the west wall, bins in the SW corner ----
   { n: "guest-frame", x: 14.0, z: 15.3, w: 3.2, d: 5.8, h: 1.0, c: 0xd8d2c4 },
@@ -171,7 +171,7 @@ export const FURNITURE = [
   { n: "box", x: 16.9, z: 19.2, w: 1.2, d: 0.9, h: 0.8, c: 0xc49a6c },
   { n: "instant-pot", x: 18.0, z: 19.3, w: 0.9, d: 0.9, h: 1.0, c: 0x2a2a2e, shape: "cyl" },
   { n: "toaster-oven", x: 19.0, z: 19.2, w: 1.0, d: 1.4, h: 0.9, c: 0xa7abae },
-  { n: "guest-window", x: 16.1, z: 20, w: 5.0, d: 0.6, h: 3.4, y: 3, c: 0xbcd3e0 },
+  { n: "guest-window", x: 16.1, z: 20, w: 5.0, d: 0.6, h: 3.4, y: 3, c: 0xbcd3e0, wall: true },
 
   // ---- balcony (visual only, 5 ft deep, locked) ----
   { n: "balcony-floor", x: 26.15, z: 22.5, w: 11.7, d: 5, h: 0.15, y: -0.15, c: 0x9a938a },
@@ -196,3 +196,16 @@ export const INTERACTABLES = [
 
 // Start just inside the main entrance, on the mat, facing into the apartment.
 export const SPAWN = { x: 30.45, z: 1.7, dirX: 0, dirZ: 1 };
+
+// Floating room labels (dollhouse pills), x/z centers.
+export const LABELS = [
+  { t: "CLOSET", x: 4.4, z: 3 },
+  { t: "BATH", x: 13.8, z: 3.4 },
+  { t: "KITCHEN", x: 20.5, z: 3.3 },
+  { t: "ENTRY", x: 30.7, z: 2.6 },
+  { t: "MY ROOM", x: 6, z: 10.5 },
+  { t: "HALLWAY", x: 16, z: 9.2 },
+  { t: "GUEST ROOM", x: 16, z: 15.5 },
+  { t: "LIVING ROOM", x: 25.5, z: 11.5 },
+  { t: "BALCONY", x: 26.2, z: 22.5 },
+];

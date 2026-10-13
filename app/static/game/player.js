@@ -2,7 +2,7 @@
 Third-person character: procedural low-poly person with a code-driven
 walk cycle. Circle-vs-AABB collision, axis-separated so you slide along walls.
 */import * as THREE from 'three';
-import { pencil, outlined } from './pencil.js';
+import { pencil } from './pencil.js';
 
 const RADIUS = 0.55;
 const SPEED = 6.5; // ft/s
@@ -23,7 +23,7 @@ export function createPlayer(scene) {
     const pivot = new THREE.Group();
     const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 8), limbMat);
     m.position.y = -(len / 2 + r);
-    pivot.add(outlined(m, 1.12));
+    pivot.add(m);
     return pivot;
   };
   const armL = mkLimb(0.16, 0.8), armR = mkLimb(0.16, 0.8);
@@ -33,7 +33,6 @@ export function createPlayer(scene) {
 
   for (const m of [body, head, hair]) {
     m.castShadow = true;
-    outlined(m, 1.08);
     g.add(m);
   }
   g.add(armL, armR, legL, legR);

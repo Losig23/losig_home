@@ -28,6 +28,8 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
 container.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -38,7 +40,7 @@ player.state.z = SPAWN.z;
 if (SPAWN.dirX !== undefined) { player.state.dirX = SPAWN.dirX; player.state.dirZ = SPAWN.dirZ; }
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
-const CAM_OFF = new THREE.Vector3(0, 13, 10.5);
+const CAM_OFF = new THREE.Vector3(0, 14.5, 12);
 const camTarget = new THREE.Vector3();
 // start the camera already behind the player instead of sweeping in from the origin
 camera.position.set(SPAWN.x + CAM_OFF.x, CAM_OFF.y, SPAWN.z + CAM_OFF.z);
