@@ -47,8 +47,8 @@ export function createPlayer(scene) {
       const nz = Math.max(c.z1, Math.min(z, c.z2));
       if ((x - nx) ** 2 + (z - nz) ** 2 < RADIUS * RADIUS) return true;
     }
-    // stay inside the apartment shell
-    if (x < 0.8 || x > 31.2 || z < 0.8 || z > 23.2) return true;
+    // stay inside the apartment shell (balcony is visual only)
+    if (x < 0.8 || x > 31.2 || z < 0.8 || z > 19.2) return true;
     return false;
   }
 

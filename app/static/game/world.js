@@ -25,17 +25,17 @@ export function buildWorld(scene) {
 
   const colliders = [];
 
-  // ---- floors: one carpet base + wood-look kitchen/entry + tile bath ----
-  const base = new THREE.Mesh(new THREE.PlaneGeometry(32, 24), pencil(0xcbbfa5));
+  // ---- floors: one carpet base + wood-look kitchen + tile bath ----
+  const base = new THREE.Mesh(new THREE.PlaneGeometry(32, 20), pencil(0xcbbfa5));
   base.rotation.x = -Math.PI / 2;
-  base.position.set(16, 0, 12);
+  base.position.set(16, 0, 10);
   base.receiveShadow = true;
   scene.add(base);
 
   const zones = [
     // [x, z, w, d, color] center-based
-    [26, 6, 12, 12, 0xb08d5f],   // kitchen wood
-    [22.5, 15.5, 5, 7, 0x9fa8ad], // bathroom tile
+    [26, 4, 12, 8, 0xb08d5f],   // kitchen wood
+    [16, 4, 8, 8, 0x9fa8ad],     // bathroom tile
   ];
   for (const [x, z, w, d, c] of zones) {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), pencil(c));

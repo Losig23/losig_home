@@ -19,7 +19,7 @@ async function getJSON(url) {
 
 const TITLES = {
   games: "🎮 Controller — games",
-  music: "🎧 Headphones — music",
+  music: "🎧 Headset — music",
   work: "💻 Laptop — work",
   gym: "💧 Water bottle — training",
   "meals-today": "🍳 Stove — today's meals",
