@@ -34,8 +34,8 @@ export function buildWorld(scene) {
 
   const zones = [
     // [x, z, w, d, color] center-based
-    [22.5, 6, 14, 12, 0xb08d5f],  // kitchen + entry wood
-    [15, 6, 6, 12, 0x9fa8ad],     // bathroom tile
+    [26, 6, 12, 12, 0xb08d5f],   // kitchen wood
+    [22.5, 15.5, 5, 7, 0x9fa8ad], // bathroom tile
   ];
   for (const [x, z, w, d, c] of zones) {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), pencil(c));
