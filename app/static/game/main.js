@@ -35,10 +35,13 @@ const { colliders } = buildWorld(scene);
 const player = createPlayer(scene);
 player.state.x = SPAWN.x;
 player.state.z = SPAWN.z;
+if (SPAWN.dirX !== undefined) { player.state.dirX = SPAWN.dirX; player.state.dirZ = SPAWN.dirZ; }
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
 const CAM_OFF = new THREE.Vector3(0, 13, 10.5);
 const camTarget = new THREE.Vector3();
+// start the camera already behind the player instead of sweeping in from the origin
+camera.position.set(SPAWN.x + CAM_OFF.x, CAM_OFF.y, SPAWN.z + CAM_OFF.z);
 
 addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;

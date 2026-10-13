@@ -6,7 +6,7 @@ furniture is toon-shaded boxes/cylinders/cones with ink outlines.
 Returns the collider list: {x1,z1,x2,z2} footprints the player can't enter.
 */import * as THREE from 'three';
 import { pencil, outlined, addLights } from './pencil.js';
-import { WALLS, WALL_H, WALL_T, FURNITURE } from './apartment.js';
+import { WALLS, WALL_H, WALL_T, FURNITURE, FLOORS } from './apartment.js';
 
 const WALL_C = 0xe6dcc4;
 
@@ -25,19 +25,14 @@ export function buildWorld(scene) {
 
   const colliders = [];
 
-  // ---- floors: one carpet base + wood-look kitchen + tile bath ----
+  // ---- floors: one carpet base + per-zone overlays from apartment.js ----
   const base = new THREE.Mesh(new THREE.PlaneGeometry(32, 20), pencil(0xcbbfa5));
   base.rotation.x = -Math.PI / 2;
   base.position.set(16, 0, 10);
   base.receiveShadow = true;
   scene.add(base);
 
-  const zones = [
-    // [x, z, w, d, color] center-based
-    [26, 4, 12, 8, 0xb08d5f],   // kitchen wood
-    [16, 4, 8, 8, 0x9fa8ad],     // bathroom tile
-  ];
-  for (const [x, z, w, d, c] of zones) {
+  for (const [x, z, w, d, c] of FLOORS) {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), pencil(c));
     p.rotation.x = -Math.PI / 2;
     p.position.set(x, 0.02, z);
@@ -76,8 +71,8 @@ export function buildWorld(scene) {
     m.position.set(f.x, y, f.z);
     if (f.rx) m.rotation.x = f.rx;
     scene.add(m);
-    // low flat things (rugs) aren't colliders
-    if (f.h > 0.3) {
+    // low flat things (rugs) and overhead things (wall cabinets, AC) aren't colliders
+    if (f.h > 0.3 && (f.y || 0) < 4) {
       colliders.push({
         x1: f.x - f.w / 2, z1: f.z - f.d / 2,
         x2: f.x + f.w / 2, z2: f.z + f.d / 2,

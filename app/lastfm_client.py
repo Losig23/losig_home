@@ -4,6 +4,8 @@ Display only — nothing here trains a model or writes data anywhere. The API
 key is passed as a request param (Last.fm's design) and is never included in
 exception messages or logs.
 """
+from __future__ import annotations
+
 import requests
 
 API_URL = "https://ws.audioscrobbler.com/2.0/"
