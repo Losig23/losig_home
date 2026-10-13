@@ -511,12 +511,13 @@ _CALENDAR_STYLES = """
 .cal-cell.today .cal-num{font-weight:700;color:var(--accent)}
 .cal-cell.selected{background:#eff6ff;border-color:var(--accent)}
 .cal-cell.has-sessions{background:#f8fafc}
-.cal-badge{position:absolute;bottom:.3rem;right:.4rem;background:var(--accent);color:#fff;
-  font-size:.7rem;border-radius:999px;padding:.05rem .45rem}
-.cal-badge.travel{background:#0d9488;bottom:1.35rem}
-.cal-badge.gaming{background:#7c3aed;bottom:2.4rem}
-.cal-badge.meal{background:#ea580c;bottom:3.45rem}
-.cal-badge.diary{background:#4b5563;bottom:4.5rem}
+.cal-badges{position:absolute;bottom:.3rem;right:.4rem;display:flex;flex-direction:column-reverse;
+  align-items:flex-end;gap:.15rem}
+.cal-badge{background:var(--accent);color:#fff;font-size:.7rem;border-radius:999px;padding:.05rem .45rem}
+.cal-badge.travel{background:#0d9488}
+.cal-badge.gaming{background:#7c3aed}
+.cal-badge.meal{background:#ea580c}
+.cal-badge.diary{background:#4b5563}
 .gaming-tag{display:inline-block;background:#7c3aed;color:#fff;font-size:.7rem;
   border-radius:999px;padding:.05rem .5rem;margin-left:.4rem;vertical-align:middle}
 .meal-tag{display:inline-block;background:#ea580c;color:#fff;font-size:.7rem;
@@ -619,12 +620,15 @@ function renderGrid() {
     if (iso === todayIso) cls.push("today");
     if (iso === selectedDay) cls.push("selected");
     if (entries.length) cls.push("has-sessions");
-    const badges =
-      (nW ? `<span class="cal-badge">${nW}</span>` : "") +
-      (nT ? `<span class="cal-badge travel">${nT} travel</span>` : "") +
-      (nG ? `<span class="cal-badge gaming">${nG} game</span>` : "") +
-      (nM ? `<span class="cal-badge meal">${nM} meal</span>` : "") +
-      (hasD ? `<span class="cal-badge diary">diary</span>` : "");
+    const badgeList = [
+      nW ? `<span class="cal-badge">${nW}</span>` : "",
+      nT ? `<span class="cal-badge travel">${nT} travel</span>` : "",
+      nG ? `<span class="cal-badge gaming">${nG} game</span>` : "",
+      nM ? `<span class="cal-badge meal">${nM} meal</span>` : "",
+      hasD ? `<span class="cal-badge diary">diary</span>` : "",
+    ].filter(Boolean);
+    const badges = badgeList.length
+      ? `<div class="cal-badges">${badgeList.join("")}</div>` : "";
     cells += `<div class="${cls.join(" ")}" data-day="${iso}">` +
       `<span class="cal-num">${d}</span>${badges}</div>`;
   }
