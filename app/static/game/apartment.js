@@ -102,12 +102,10 @@ export const FURNITURE = [
   { n: "uppers-s", x: 20.2, z: 5.75, w: 7.2, d: 1.2, h: 1.9, y: 6.0, c: 0xb98a5a, wall: true },
   { n: "trash-can", x: 24.6, z: 0.8, w: 1.0, d: 1.0, h: 2.2, c: 0x232326, shape: "cyl" },
 
-  // ---- dining: round table, two red chairs, drawer tower ----
+  // ---- dining: round table, red chair, drawer tower ----
   { n: "dining-table", x: 26.5, z: 3.5, w: 3.6, d: 3.6, h: 2.5, c: 0x9c6b3e, shape: "cyl" },
   { n: "dchair-s", x: 26.5, z: 5.6, w: 1.4, d: 1.4, h: 1.7, c: 0x8c2c2d },
   { n: "dchair-s-back", x: 26.5, z: 6.25, w: 1.4, d: 0.15, h: 1.8, y: 1.7, c: 0x8c2c2d },
-  { n: "dchair-e", x: 28.6, z: 3.5, w: 1.4, d: 1.4, h: 1.7, c: 0x8c2c2d },
-  { n: "dchair-e-back", x: 29.25, z: 3.5, w: 0.15, d: 1.4, h: 1.8, y: 1.7, c: 0x8c2c2d },
   { n: "drawer-tower", x: 28.8, z: 0.85, w: 1.0, d: 1.1, h: 2.8, c: 0x202224 },
   { n: "produce-box", x: 28.8, z: 0.85, w: 1.1, d: 1.2, h: 0.8, y: 2.8, c: 0xc49a6c },
 
@@ -133,7 +131,6 @@ export const FURNITURE = [
   { n: "plant-2", x: 21.05, z: 12.95, w: 0.5, d: 0.5, h: 2.1, y: 1.1, c: 0x4c8f45, shape: "cone" },
   { n: "arc-lamp", x: 20.75, z: 19.2, w: 0.12, d: 0.12, h: 5.4, c: 0xc7cacc, shape: "cyl" },
   { n: "arc-lamp-shade", x: 21.2, z: 19.2, w: 0.8, d: 0.8, h: 0.5, y: 5.0, c: 0xf4f2ec, shape: "cone" },
-  { n: "laundry-basket", x: 23.6, z: 13.6, w: 1.4, d: 1.4, h: 1.9, c: 0x8a8f92, shape: "cyl" },
 
   // desk on the east wall, north -> south: headset, bottle, controller (by monitor), laptop
   { n: "desk-top", x: 30.9, z: 14.3, w: 1.8, d: 6.0, h: 0.12, y: 2.4, c: 0xc9a877 },

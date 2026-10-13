@@ -4,59 +4,68 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Apartment — losig_home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #14161a;
-    font-family: Georgia, 'Times New Roman', serif; }
+  /* anime HUD: cream paper, ink borders, offset "sticker" shadows */
+  :root { --ink: #2a2433; --paper: #fffdf6; --sky: #cfeaf3; --accent: #e25a5a; --blue: #5b8def; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sky);
+    font-family: "M PLUS Rounded 1c", system-ui, sans-serif; color: var(--ink); }
   #scene { position: fixed; inset: 0; }
   #scene canvas { display: block; }
-  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5;
-    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.5) 100%); }
-  .hud { position: fixed; z-index: 10; color: #f5f2ea; }
-  #title { top: 14px; left: 16px; background: rgba(16,18,22,.85); color: #f5f2ea;
-    border: 2px solid rgba(245,242,234,.35); border-radius: 10px; padding: 8px 14px;
-    box-shadow: 3px 3px 0 rgba(58,47,34,.25); }
-  #title b { font-size: 1.05rem; letter-spacing: .02em; }
-  #title .sub { font-size: .8rem; opacity: .75; }
-  #authpill { top: 14px; right: 16px; background: rgba(16,18,22,.85); color: #f5f2ea;
-    border: 2px solid rgba(245,242,234,.35); border-radius: 999px; padding: 6px 14px; font-size: .85rem; }
-  #authpill a { color: #ffc98a; }
-  #help { bottom: 14px; left: 16px; font-size: .85rem; background: rgba(16,18,22,.85); color: #f5f2ea;
-    border: 2px solid rgba(245,242,234,.35); border-radius: 10px; padding: 6px 12px; }
-  #exit { bottom: 14px; right: 16px; font-size: .85rem; background: rgba(16,18,22,.85); color: #f5f2ea;
-    border: 2px solid rgba(245,242,234,.35); border-radius: 10px; padding: 6px 12px; }
-  #exit a { color: #ffc98a; text-decoration: none; }
-  #prompt { bottom: 76px; left: 50%; transform: translateX(-50%);
-    font-size: 1rem; background: #f5f2ea; color: #14161a; border-radius: 999px;
-    padding: 8px 18px; display: none; box-shadow: 3px 3px 0 rgba(0,0,0,.25); }
-  #prompt .key { display: inline-block; border: 2px solid #faf6ec; border-radius: 6px;
-    padding: 0 8px; margin-right: 8px; font-weight: bold; }
+  .hud { position: fixed; z-index: 10; background: var(--paper); color: var(--ink);
+    border: 3px solid var(--ink); box-shadow: 4px 4px 0 rgba(42,36,51,.35); }
+  .hud a { color: var(--accent); font-weight: 800; text-decoration: none; }
+  #title { top: 14px; left: 16px; border-radius: 14px; padding: 8px 16px 9px; }
+  #title b { font-size: 1.05rem; font-weight: 800; letter-spacing: .02em; }
+  #title .sub { font-size: .78rem; opacity: .7; }
+  #authpill { top: 14px; right: 16px; border-radius: 999px; padding: 6px 14px; font-size: .85rem; }
+  #help { bottom: 14px; left: 16px; font-size: .82rem; border-radius: 12px; padding: 6px 12px; }
+  #help b, #prompt .key { font-weight: 800; }
+  #exit { bottom: 14px; right: 16px; font-size: .85rem; border-radius: 12px; padding: 6px 12px; }
+  /* interaction prompt: a manga speech bubble with a tail */
+  #prompt { bottom: 84px; left: 50%; transform: translateX(-50%); font-size: 1rem; font-weight: 800;
+    border-radius: 22px; padding: 9px 20px; display: none; white-space: nowrap;
+    animation: bob 1.4s ease-in-out infinite; }
+  #prompt::after { content: ""; position: absolute; left: 50%; bottom: -13px; width: 18px; height: 18px;
+    background: var(--paper); border-right: 3px solid var(--ink); border-bottom: 3px solid var(--ink);
+    transform: translateX(-50%) rotate(45deg); }
+  #prompt .key { display: inline-block; background: var(--ink); color: var(--paper);
+    border-radius: 7px; padding: 0 8px; margin-right: 8px; }
+  @keyframes bob { 50% { transform: translateX(-50%) translateY(-4px); } }
   /* interaction panel: paper drawer on the right */
-  #panel { position: fixed; top: 0; right: 0; height: 100%; width: min(400px, 92vw);
-    z-index: 20; background: #1c1f24; color: #f5f2ea; border-left: 3px solid #ffc98a;
-    box-shadow: -6px 0 0 rgba(58,47,34,.15); transform: translateX(105%);
-    transition: transform .25s ease; display: flex; flex-direction: column; }
+  #panel { position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(400px, calc(100vw - 24px));
+    z-index: 20; background: var(--paper); color: var(--ink); border: 3px solid var(--ink);
+    border-radius: 18px; box-shadow: 6px 6px 0 rgba(42,36,51,.35); transform: translateX(calc(100% + 30px));
+    transition: transform .3s cubic-bezier(.3,1.4,.6,1); display: flex; flex-direction: column; overflow: hidden; }
   #panel.open { transform: none; }
   #panel header { display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-bottom: 2px dashed rgba(245,242,234,.25); }
-  #panel header h2 { margin: 0; font-size: 1.2rem; }
-  #panelClose { border: 2px solid #f5f2ea; color: #f5f2ea; background: none; border-radius: 8px;
-    font-size: 1rem; cursor: pointer; padding: 2px 10px; color: #f5f2ea; }
-  #panelBody { padding: 14px 18px; overflow-y: auto; flex: 1; }
-  #panelBody h3 { margin: 1em 0 .4em; font-size: 1rem; }
+    padding: 12px 16px; background: var(--blue); color: #fff; border-bottom: 3px solid var(--ink); }
+  #panel header h2 { margin: 0; font-size: 1.15rem; font-weight: 800; text-shadow: 2px 2px 0 var(--ink); }
+  #panelClose { border: 3px solid var(--ink); color: var(--ink); background: var(--paper); border-radius: 10px;
+    font: inherit; font-weight: 800; cursor: pointer; padding: 0 10px; box-shadow: 2px 2px 0 var(--ink); }
+  #panelBody { padding: 12px 18px; overflow-y: auto; flex: 1;
+    background-image: repeating-linear-gradient(transparent 0 27px, rgba(91,141,239,.13) 27px 28px); }
+  #panelBody h3 { margin: 1em 0 .4em; font-size: 1rem; font-weight: 800; }
   #panelBody ul { padding-left: 1.2em; }
   #panelBody .row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
   #panelBody input, #panelBody select, #panelBody textarea {
-    font: inherit; padding: 6px 8px; border: 2px solid rgba(245,242,234,.35); border-radius: 8px;
-    background: #14161a; color: #f5f2ea; border: 1px solid #3a3f47; }
-  #panelBody button.btn { font: inherit; padding: 6px 14px; border: 2px solid rgba(245,242,234,.35);
-    border-radius: 8px; background: #f5f2ea; color: #14161a; cursor: pointer; }
-  #panelBody .muted { opacity: .7; font-size: .9rem; }
-  #panelBody a { color: #ffc98a; }
-  #loading { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center;
-    justify-content: center; background: #14161a; font-size: 1.2rem; color: #3a2f22; }
-  #nogl { display: none; position: fixed; inset: 0; z-index: 30; align-items: center;
-    justify-content: center; background: #14161a; color: #3a2f22; padding: 2rem;
-    text-align: center; font-size: 1.1rem; }
+    font: inherit; padding: 6px 10px; border: 2px solid var(--ink); border-radius: 10px;
+    background: #fff; color: var(--ink); }
+  #panelBody button.btn { font: inherit; font-weight: 800; padding: 6px 16px; border: 3px solid var(--ink);
+    border-radius: 999px; background: var(--accent); color: #fff; cursor: pointer; box-shadow: 3px 3px 0 var(--ink); }
+  #panelBody button.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  #panelBody .muted { opacity: .65; font-size: .9rem; }
+  #panelBody a { color: var(--accent); font-weight: 800; }
+  #loading, #nogl { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: .3rem; text-align: center; padding: 2rem;
+    background: linear-gradient(#8fcbe8, var(--sky) 60%, #fff4e6); color: var(--ink); font-size: 1.1rem; }
+  #loading .jp { font-size: 2rem; font-weight: 800; letter-spacing: .1em; animation: bob2 1.2s ease-in-out infinite; }
+  @keyframes bob2 { 50% { transform: translateY(-6px); } }
+  #nogl { display: none; }
+  @media (max-width: 600px) { #title .sub, #help { display: none; }
+    #authpill { top: auto; right: auto; bottom: 14px; left: 16px; } }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -64,9 +73,8 @@
 </head>
 <body>
 <div id="scene"></div>
-<div id="vignette"></div>
 
-<div class="hud" id="title"><b>losig_home — the apartment</b><div class="sub">pencil-drawn MVP · walk around, press E on things</div></div>
+<div class="hud" id="title"><b>losig_home — the apartment</b><div class="sub">anime edition · walk around, press E on things</div></div>
 <div class="hud" id="authpill">…</div>
 <div class="hud" id="help">WASD / arrows — move · <b>E</b> — interact · <b>Esc</b> — close</div>
 <div class="hud" id="exit"><a href="/">← back to site</a></div>
@@ -77,7 +85,7 @@
   <div id="panelBody"></div>
 </aside>
 
-<div id="loading">sharpening pencils…</div>
+<div id="loading"><div class="jp">おじゃまします</div><div>inking the apartment…</div></div>
 <div id="nogl">WebGL isn't available in this browser, so the apartment can't load. Try a recent Chrome, Edge, Firefox, or Safari.</div>
 
 <script type="module" src="/static/game/main.js"></script>

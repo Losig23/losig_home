@@ -1,8 +1,10 @@
 /*
-Apartment MVP entry point: renderer, follow camera, input, game loop,
-interaction prompts, and the slide-in panel.
+Apartment MVP entry point: renderer, ink post pass, follow camera, input,
+game loop, interaction prompts, and the slide-in panel.
 */import * as THREE from 'three';
 import { buildWorld } from './world.js';
+import { createInk } from './ink.js';
+import { LABEL_FONT } from './pencil.js';
 import { createPlayer } from './player.js';
 import { INTERACTABLES, SPAWN } from './apartment.js';
 import { renderPanel, bindPanel } from './panels.js';
@@ -27,13 +29,18 @@ try {
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.shadowMap.type = THREE.PCFShadowMap; // hard-edged cel shadows
+renderer.toneMapping = THREE.NoToneMapping;   // keep flat anime colors unsquashed
 container.appendChild(renderer.domElement);
 
+// room labels are drawn to canvases at build time, so wait (briefly) for the font
+await Promise.race([
+  document.fonts.load(`800 30px ${LABEL_FONT}`).catch(() => {}),
+  new Promise((r) => setTimeout(r, 1500)),
+]);
+
 const scene = new THREE.Scene();
-const { colliders } = buildWorld(scene);
+const { colliders, overlay } = buildWorld(scene);
 const player = createPlayer(scene);
 player.state.x = SPAWN.x;
 player.state.z = SPAWN.z;
@@ -45,10 +52,13 @@ const camTarget = new THREE.Vector3();
 // start the camera already behind the player instead of sweeping in from the origin
 camera.position.set(SPAWN.x + CAM_OFF.x, CAM_OFF.y, SPAWN.z + CAM_OFF.z);
 
+const ink = createInk(renderer, scene, camera);
+
 addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  ink.setSize();
 });
 
 // ---- input ----
@@ -136,9 +146,9 @@ function tick() {
   // follow camera, eased
   camTarget.set(player.state.x + CAM_OFF.x, CAM_OFF.y, player.state.z + CAM_OFF.z);
   camera.position.lerp(camTarget, 1 - Math.pow(0.001, dt));
-  camera.lookAt(player.state.x, 1.2, player.state.z);
+  camera.lookAt(player.state.x, 2.6, player.state.z);
 
-  renderer.render(scene, camera);
+  ink.render(overlay, clock.elapsedTime);
   if (firstFrame) {
     firstFrame = false;
     document.getElementById("loading").style.display = "none";

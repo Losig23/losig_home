@@ -1,15 +1,18 @@
 /*
 Builds the apartment meshes from apartment.js data.
 
-Dollhouse look: dark backdrop, warm wood floors, cutaway walls (half
-height so rooms read from the follow camera), soft standard materials,
-warm per-room lighting, floating room-label pills. Returns the collider
-list: {x1,z1,x2,z2} footprints the player can't enter.
+Anime look: cel-shaded toon materials (pencil.js), ink line art (ink.js),
+cutaway walls (half height so rooms read from the follow camera). The
+building sits on a blank pale ground that fades into the sky haze — the
+outside world (street, gym, office) comes in a later phase. Returns the
+collider list ({x1,z1,x2,z2} footprints the player can't enter) and an
+overlay scene for un-inked sprites (room labels).
 */import * as THREE from 'three';
 import { pencil, addLights, makeLabel } from './pencil.js';
 import { WALLS, WALL_T, FURNITURE, LABELS, FLOORS } from './apartment.js';
 
-const WALL_C = 0xf2ece0;
+const WALL_C = 0xfbf5e6;
+const SKY = 0xdde9ec;
 const CUT_H = 4; // cutaway wall height; collision stays 2D so this is visual only
 
 function box(w, h, d, color) {
@@ -21,14 +24,22 @@ function box(w, h, d, color) {
 
 
 export function buildWorld(scene) {
-  scene.background = new THREE.Color(0x14161a);
-  scene.fog = new THREE.Fog(0x14161a, 48, 115);
+  scene.background = new THREE.Color(SKY);
+  scene.fog = new THREE.Fog(SKY, 40, 110);
   addLights(scene);
 
+  // blank ground for now: catches the building's shadow, fades into the haze
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 420), pencil(0xc4d0d2));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(16, -0.2, 10);
+  ground.receiveShadow = true;
+  scene.add(ground);
+
   const colliders = [];
+  const overlay = new THREE.Scene();
 
   // ---- floors: warm light wood base + tile zones from apartment.js ----
-  const base = new THREE.Mesh(new THREE.PlaneGeometry(32, 20), pencil(0xd9b98c));
+  const base = new THREE.Mesh(new THREE.PlaneGeometry(32, 20), pencil(0xe6c99a));
   base.rotation.x = -Math.PI / 2;
   base.position.set(16, 0, 10);
   base.receiveShadow = true;
@@ -92,8 +103,9 @@ export function buildWorld(scene) {
   for (const l of LABELS) {
     const sp = makeLabel(l.t);
     sp.position.set(l.x, 7.2, l.z);
-    scene.add(sp);
+    overlay.add(sp);
   }
 
-  return { colliders };
+  return { colliders, overlay };
 }
+
