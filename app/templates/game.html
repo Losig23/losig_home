@@ -5,60 +5,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Apartment — losig_home</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #efe7d6;
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #14161a;
     font-family: Georgia, 'Times New Roman', serif; }
   #scene { position: fixed; inset: 0; }
   #scene canvas { display: block; }
-  /* pencil-paper grain over the 3D view */
-  #grain { position: fixed; inset: 0; pointer-events: none; opacity: .5; z-index: 5;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.45, 0 0 0 0 0.38, 0 0 0 0 0.28, 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E"); }
   #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5;
-    background: radial-gradient(ellipse at center, transparent 55%, rgba(74,60,40,.22) 100%); }
-  .hud { position: fixed; z-index: 10; color: #3a2f22; }
-  #title { top: 14px; left: 16px; background: rgba(250,246,236,.88);
-    border: 2px solid #3a2f22; border-radius: 10px; padding: 8px 14px;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.5) 100%); }
+  .hud { position: fixed; z-index: 10; color: #f5f2ea; }
+  #title { top: 14px; left: 16px; background: rgba(16,18,22,.85); color: #f5f2ea;
+    border: 2px solid rgba(245,242,234,.35); border-radius: 10px; padding: 8px 14px;
     box-shadow: 3px 3px 0 rgba(58,47,34,.25); }
   #title b { font-size: 1.05rem; letter-spacing: .02em; }
   #title .sub { font-size: .8rem; opacity: .75; }
-  #authpill { top: 14px; right: 16px; background: rgba(250,246,236,.88);
-    border: 2px solid #3a2f22; border-radius: 999px; padding: 6px 14px; font-size: .85rem; }
-  #authpill a { color: #3a2f22; }
-  #help { bottom: 14px; left: 16px; font-size: .85rem; background: rgba(250,246,236,.82);
-    border: 2px solid #3a2f22; border-radius: 10px; padding: 6px 12px; }
-  #exit { bottom: 14px; right: 16px; font-size: .85rem; background: rgba(250,246,236,.88);
-    border: 2px solid #3a2f22; border-radius: 10px; padding: 6px 12px; }
-  #exit a { color: #3a2f22; text-decoration: none; }
+  #authpill { top: 14px; right: 16px; background: rgba(16,18,22,.85); color: #f5f2ea;
+    border: 2px solid rgba(245,242,234,.35); border-radius: 999px; padding: 6px 14px; font-size: .85rem; }
+  #authpill a { color: #ffc98a; }
+  #help { bottom: 14px; left: 16px; font-size: .85rem; background: rgba(16,18,22,.85); color: #f5f2ea;
+    border: 2px solid rgba(245,242,234,.35); border-radius: 10px; padding: 6px 12px; }
+  #exit { bottom: 14px; right: 16px; font-size: .85rem; background: rgba(16,18,22,.85); color: #f5f2ea;
+    border: 2px solid rgba(245,242,234,.35); border-radius: 10px; padding: 6px 12px; }
+  #exit a { color: #ffc98a; text-decoration: none; }
   #prompt { bottom: 76px; left: 50%; transform: translateX(-50%);
-    font-size: 1rem; background: #3a2f22; color: #faf6ec; border-radius: 999px;
+    font-size: 1rem; background: #f5f2ea; color: #14161a; border-radius: 999px;
     padding: 8px 18px; display: none; box-shadow: 3px 3px 0 rgba(0,0,0,.25); }
   #prompt .key { display: inline-block; border: 2px solid #faf6ec; border-radius: 6px;
     padding: 0 8px; margin-right: 8px; font-weight: bold; }
   /* interaction panel: paper drawer on the right */
   #panel { position: fixed; top: 0; right: 0; height: 100%; width: min(400px, 92vw);
-    z-index: 20; background: #faf6ec; border-left: 3px solid #3a2f22;
+    z-index: 20; background: #1c1f24; color: #f5f2ea; border-left: 3px solid #ffc98a;
     box-shadow: -6px 0 0 rgba(58,47,34,.15); transform: translateX(105%);
     transition: transform .25s ease; display: flex; flex-direction: column; }
   #panel.open { transform: none; }
   #panel header { display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-bottom: 2px dashed #3a2f22; }
+    padding: 14px 18px; border-bottom: 2px dashed rgba(245,242,234,.25); }
   #panel header h2 { margin: 0; font-size: 1.2rem; }
-  #panelClose { border: 2px solid #3a2f22; background: none; border-radius: 8px;
-    font-size: 1rem; cursor: pointer; padding: 2px 10px; color: #3a2f22; }
+  #panelClose { border: 2px solid #f5f2ea; color: #f5f2ea; background: none; border-radius: 8px;
+    font-size: 1rem; cursor: pointer; padding: 2px 10px; color: #f5f2ea; }
   #panelBody { padding: 14px 18px; overflow-y: auto; flex: 1; }
   #panelBody h3 { margin: 1em 0 .4em; font-size: 1rem; }
   #panelBody ul { padding-left: 1.2em; }
   #panelBody .row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
   #panelBody input, #panelBody select, #panelBody textarea {
-    font: inherit; padding: 6px 8px; border: 2px solid #3a2f22; border-radius: 8px;
-    background: #fff; color: #3a2f22; }
-  #panelBody button.btn { font: inherit; padding: 6px 14px; border: 2px solid #3a2f22;
-    border-radius: 8px; background: #3a2f22; color: #faf6ec; cursor: pointer; }
+    font: inherit; padding: 6px 8px; border: 2px solid rgba(245,242,234,.35); border-radius: 8px;
+    background: #14161a; color: #f5f2ea; border: 1px solid #3a3f47; }
+  #panelBody button.btn { font: inherit; padding: 6px 14px; border: 2px solid rgba(245,242,234,.35);
+    border-radius: 8px; background: #f5f2ea; color: #14161a; cursor: pointer; }
   #panelBody .muted { opacity: .7; font-size: .9rem; }
-  #panelBody a { color: #6b4f2a; }
+  #panelBody a { color: #ffc98a; }
   #loading { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center;
-    justify-content: center; background: #efe7d6; font-size: 1.2rem; color: #3a2f22; }
+    justify-content: center; background: #14161a; font-size: 1.2rem; color: #3a2f22; }
   #nogl { display: none; position: fixed; inset: 0; z-index: 30; align-items: center;
-    justify-content: center; background: #efe7d6; color: #3a2f22; padding: 2rem;
+    justify-content: center; background: #14161a; color: #3a2f22; padding: 2rem;
     text-align: center; font-size: 1.1rem; }
 </style>
 <script type="importmap">
@@ -67,7 +64,6 @@
 </head>
 <body>
 <div id="scene"></div>
-<div id="grain"></div>
 <div id="vignette"></div>
 
 <div class="hud" id="title"><b>losig_home — the apartment</b><div class="sub">pencil-drawn MVP · walk around, press E on things</div></div>

@@ -28,6 +28,8 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
 container.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -37,7 +39,7 @@ player.state.x = SPAWN.x;
 player.state.z = SPAWN.z;
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
-const CAM_OFF = new THREE.Vector3(0, 13, 10.5);
+const CAM_OFF = new THREE.Vector3(0, 14.5, 12);
 const camTarget = new THREE.Vector3();
 
 addEventListener("resize", () => {

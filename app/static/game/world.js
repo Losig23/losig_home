@@ -1,56 +1,51 @@
 /*
 Builds the apartment meshes from apartment.js data.
 
-Floors are per-zone (carpet / wood-look / tile), walls are plaster boxes,
-furniture is toon-shaded boxes/cylinders/cones with ink outlines.
-Returns the collider list: {x1,z1,x2,z2} footprints the player can't enter.
+Dollhouse look: dark backdrop, warm wood floors, cutaway walls (half
+height so rooms read from the follow camera), soft standard materials,
+warm per-room lighting, floating room-label pills. Returns the collider
+list: {x1,z1,x2,z2} footprints the player can't enter.
 */import * as THREE from 'three';
-import { pencil, outlined, addLights } from './pencil.js';
-import { WALLS, WALL_H, WALL_T, FURNITURE } from './apartment.js';
+import { pencil, addLights, makeLabel } from './pencil.js';
+import { WALLS, WALL_T, FURNITURE, LABELS } from './apartment.js';
 
-const WALL_C = 0xe6dcc4;
+const WALL_C = 0xf2ece0;
+const CUT_H = 4; // cutaway wall height; collision stays 2D so this is visual only
 
 function box(w, h, d, color) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), pencil(color));
   m.castShadow = true;
   m.receiveShadow = true;
-  return outlined(m);
+  return m;
 }
 
 
 export function buildWorld(scene) {
-  scene.background = new THREE.Color(0xefe7d6);
-  scene.fog = new THREE.Fog(0xefe7d6, 40, 95);
+  scene.background = new THREE.Color(0x14161a);
+  scene.fog = new THREE.Fog(0x14161a, 48, 115);
   addLights(scene);
 
   const colliders = [];
 
-  // ---- floors: one carpet base + wood-look kitchen + tile bath ----
-  const base = new THREE.Mesh(new THREE.PlaneGeometry(32, 20), pencil(0xcbbfa5));
+  // ---- floors: warm light wood base, tile bath ----
+  const base = new THREE.Mesh(new THREE.PlaneGeometry(32, 20), pencil(0xd9b98c));
   base.rotation.x = -Math.PI / 2;
   base.position.set(16, 0, 10);
   base.receiveShadow = true;
   scene.add(base);
 
-  const zones = [
-    // [x, z, w, d, color] center-based
-    [26, 4, 12, 8, 0xb08d5f],   // kitchen wood
-    [16, 4, 8, 8, 0x9fa8ad],     // bathroom tile
-  ];
-  for (const [x, z, w, d, c] of zones) {
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), pencil(c));
-    p.rotation.x = -Math.PI / 2;
-    p.position.set(x, 0.02, z);
-    p.receiveShadow = true;
-    scene.add(p);
-  }
+  const bath = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), pencil(0xcfd4d6));
+  bath.rotation.x = -Math.PI / 2;
+  bath.position.set(16, 0.02, 4);
+  bath.receiveShadow = true;
+  scene.add(bath);
 
-  // ---- walls ----
+  // ---- walls (cutaway) ----
   for (const [x1, z1, x2, z2] of WALLS) {
     const w = Math.abs(x2 - x1) || WALL_T;
     const d = Math.abs(z2 - z1) || WALL_T;
-    const m = box(Math.max(w, WALL_T), WALL_H, Math.max(d, WALL_T), WALL_C);
-    m.position.set((x1 + x2) / 2, WALL_H / 2, (z1 + z2) / 2);
+    const m = box(Math.max(w, WALL_T), CUT_H, Math.max(d, WALL_T), WALL_C);
+    m.position.set((x1 + x2) / 2, CUT_H / 2, (z1 + z2) / 2);
     scene.add(m);
     const ex = Math.max(w, WALL_T) / 2, ez = Math.max(d, WALL_T) / 2;
     colliders.push({
@@ -72,7 +67,6 @@ export function buildWorld(scene) {
     }
     m.castShadow = true;
     m.receiveShadow = true;
-    outlined(m, f.shape ? 1.06 : 1.035);
     m.position.set(f.x, y, f.z);
     if (f.rx) m.rotation.x = f.rx;
     scene.add(m);
@@ -85,6 +79,12 @@ export function buildWorld(scene) {
     }
   }
 
-  // ---- interactable markers: small floating pencil diamonds ----
+  // ---- floating room labels ----
+  for (const l of LABELS) {
+    const sp = makeLabel(l.t);
+    sp.position.set(l.x, 7.2, l.z);
+    scene.add(sp);
+  }
+
   return { colliders };
 }

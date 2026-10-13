@@ -53,7 +53,7 @@ export const FURNITURE = [
   // ---- my room (12 ft wide; bed east side, green blanket) ----
   { n: "bed-frame", x: 9, z: 13, w: 3.5, d: 7, h: 1.0, c: 0x6b4a2f },
   { n: "mattress", x: 9, z: 13, w: 3.2, d: 6.7, h: 0.8, y: 1.0, c: 0xf5f2ea },
-  { n: "blanket", x: 9, z: 14, w: 3.3, d: 3.8, h: 0.35, y: 1.8, c: 0x5fb3a8 },
+  { n: "blanket", x: 9, z: 14, w: 3.3, d: 3.8, h: 0.35, y: 1.8, c: 0x86d8cc },
   { n: "pillow", x: 9, z: 10.5, w: 2.4, d: 1.2, h: 0.5, y: 1.8, c: 0xffffff },
   { n: "nightstand", x: 6.5, z: 8, w: 1.5, d: 1.5, h: 1.8, c: 0x6b4a2f },
   { n: "room-window", x: 6, z: 19.9, w: 4, d: 0.2, h: 3, y: 3, c: 0xbcd3e0 },
@@ -78,9 +78,9 @@ export const FURNITURE = [
   { n: "stove-top", x: 21, z: 5, w: 2, d: 2.5, h: 0.15, y: 3.0, c: 0x3a3a3e },
   { n: "fridge", x: 26, z: 5, w: 2.5, d: 2.5, h: 6.0, c: 0xeef0f2 },
   { n: "dining-table", x: 29.3, z: 4.8, w: 3, d: 3, h: 2.5, c: 0xa5713f, shape: "cyl" },
-  { n: "dchair-s", x: 29.3, z: 7.0, w: 1.2, d: 1.2, h: 2.5, c: 0xa83a3a },
-  { n: "dchair-w", x: 27.4, z: 4.8, w: 1.2, d: 1.2, h: 2.5, c: 0xa83a3a },
-  { n: "dchair-e", x: 31.2, z: 4.8, w: 1.2, d: 1.2, h: 2.5, c: 0xa83a3a },
+  { n: "dchair-s", x: 29.3, z: 7.0, w: 1.2, d: 1.2, h: 2.5, c: 0xc0392b },
+  { n: "dchair-w", x: 27.4, z: 4.8, w: 1.2, d: 1.2, h: 2.5, c: 0xc0392b },
+  { n: "dchair-e", x: 31.2, z: 4.8, w: 1.2, d: 1.2, h: 2.5, c: 0xc0392b },
   { n: "main-door", x: 30, z: 0.25, w: 2.5, d: 0.25, h: 7, c: 0x4a3a28 },
   { n: "shoe-rack", x: 31.25, z: 4, w: 1.5, d: 2.5, h: 3.5, c: 0x3a3a3a },
 
@@ -141,3 +141,15 @@ export const INTERACTABLES = [
 ];
 
 export const SPAWN = { x: 26, z: 16 };
+
+// Floating room labels (dollhouse pills), x/z centers, y height.
+export const LABELS = [
+  { t: "CLOSET", x: 6, z: 3 },
+  { t: "BATH", x: 16, z: 4 },
+  { t: "KITCHEN", x: 26, z: 3 },
+  { t: "MY ROOM", x: 5, z: 14 },
+  { t: "HALLWAY", x: 16, z: 10 },
+  { t: "GUEST ROOM", x: 16, z: 16.5 },
+  { t: "LIVING ROOM", x: 25, z: 16 },
+  { t: "BALCONY", x: 27.5, z: 22.5 },
+];
