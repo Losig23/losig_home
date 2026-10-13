@@ -148,6 +148,7 @@ def create_app(config_overrides=None):
 
     from app.routes.bodyweight import bodyweight_bp
     from app.routes.frontend import frontend_bp
+    from app.routes.game import game_bp
     from app.routes.life import life_bp
     from app.routes.live import live_bp
     from app.routes.meals import meals_bp
@@ -161,6 +162,7 @@ def create_app(config_overrides=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(bodyweight_bp)
     app.register_blueprint(frontend_bp)
+    app.register_blueprint(game_bp)
     app.register_blueprint(life_bp)
     app.register_blueprint(live_bp)
     app.register_blueprint(meals_bp)
@@ -274,6 +276,6 @@ def create_app(config_overrides=None):
 
 
 _PUBLIC_PATHS = frozenset(
-    {"/", "/login", "/logout", "/api", "/api/health"}
+    {"/", "/game", "/login", "/logout", "/api", "/api/health"}
 )
 _PUBLIC_PREFIXES = ("/static/", "/api/public/")
