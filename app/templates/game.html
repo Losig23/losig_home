@@ -60,9 +60,10 @@
   #panelBody a { color: var(--accent); font-weight: 800; }
   #loading, #nogl { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: .3rem; text-align: center; padding: 2rem;
-    background: linear-gradient(#8fcbe8, var(--sky) 60%, #fff4e6); color: var(--ink); font-size: 1.1rem; }
-  #loading .jp { font-size: 2rem; font-weight: 800; letter-spacing: .1em; animation: bob2 1.2s ease-in-out infinite; }
-  @keyframes bob2 { 50% { transform: translateY(-6px); } }
+    background: #000; color: #f5f2ea; font-size: 1.1rem; }
+  #loading { font-weight: 800; letter-spacing: .04em; }
+  #loading .dots::after { content: ""; animation: dots 1.2s steps(4) infinite; }
+  @keyframes dots { 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
   #nogl { display: none; }
   @media (max-width: 600px) { #title .sub, #help { display: none; }
     #authpill { top: auto; right: auto; bottom: 14px; left: 16px; } }
@@ -85,7 +86,7 @@
   <div id="panelBody"></div>
 </aside>
 
-<div id="loading"><div class="jp">おじゃまします</div><div>inking the apartment…</div></div>
+<div id="loading"><div>losig website loading<span class="dots"></span></div></div>
 <div id="nogl">WebGL isn't available in this browser, so the apartment can't load. Try a recent Chrome, Edge, Firefox, or Safari.</div>
 
 <script type="module" src="/static/game/main.js"></script>
