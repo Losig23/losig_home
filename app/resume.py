@@ -352,7 +352,7 @@ main { margin-left: 230px; max-width: 1020px; padding: 0 4rem; }
 
 
 def render_portfolio_html():
-    """Brittany-style portfolio: hero, about, experience, projects."""
+    """Public portfolio: hero, about, experience, projects."""
     jobs = "".join(
         "<article class=\"job\">"
         f"<div class=\"job-head\"><h3>{html.escape(job['title'])} "
@@ -402,7 +402,7 @@ def render_portfolio_html():
 <p class="tagline">{html.escape(TAGLINE)}</p>
 <div class="cta">
 <a class="btn" href="#projects">Check out my work</a>
-<a class="btn ghost" href="/game">Play the apartment game</a>
+<a class="btn ghost" href="/game">Immerse me</a>
 </div>
 </section>
 <section class="block reveal" id="about">

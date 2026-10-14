@@ -219,7 +219,7 @@ def dashboard():
     from flask_login import current_user
 
     if not current_user.is_authenticated:
-        # Public portfolio: standalone Brittany-style page (own sidebar nav,
+        # Public portfolio: standalone page (own sidebar nav,
         # black/green theme) — no base.html chrome.
         from app.resume import PORTFOLIO_STYLES
 

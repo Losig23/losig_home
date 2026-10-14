@@ -215,7 +215,7 @@ def test_public_home_shows_music_section(music_app):
         listening, "weekly_tracks", return_value=tracks
     ), mock.patch.object(listening, "weekly_artists", return_value=artists):
         body = music_app.test_client().get("/").data.decode()
-    assert "This week in music" in body
+    assert "Life log" in body
     assert "Blinding Lights" in body
     assert "Kendrick Lamar" in body
     assert "Last.fm" in body
