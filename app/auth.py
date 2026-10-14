@@ -244,7 +244,7 @@ def api_public_week():
 def render_public_home():
     """Server-rendered public page for logged-out visitors: recruiter-facing
     portfolio first, then the live training log."""
-    from app.resume import render_portfolio_html
+    from app.resume import render_contact_html, render_portfolio_html
 
     data = public_week_data()
 
@@ -297,19 +297,38 @@ def render_public_home():
 
     return f"""
 {render_portfolio_html()}
-<section class="training-log">
-<h2>Training log</h2>
-<p style="color:#6b7280">What I've been up to in the gym — last 7 days
+{render_life_html(data, sess_html, bw_html, meal_html, music_html)}
+{render_contact_html()}
+"""
+
+
+def render_life_html(data, sess_html, bw_html, meal_html, music_html):
+    """Grouped 'Life log' section: training, food, and music in one place."""
+    return f"""
+<section class="block reveal" id="life">
+<h2 class="sec"><span class="num">04.</span> Life log <span class="rule"></span></h2>
+<p class="muted">The human behind the commits — last 7 days
 ({data["start_date"]} → {data["end_date"]}). Full history is private —
 <a href="/login">log in</a> for everything.</p>
-<h3>Workouts ({data["session_count"]} sessions)</h3>
+<div class="life-grid">
+<div class="life-card">
+<h3>Workouts <span class="count">{data["session_count"]}</span></h3>
 {sess_html}
+</div>
+<div class="life-card">
 <h3>Bodyweight</h3>
 {bw_html}
+</div>
+<div class="life-card">
 <h3>Food</h3>
 {meal_html}
+</div>
+<div class="life-card">
+<h3>Music</h3>
+{music_html or "<p class='muted'>No scrobbles this week.</p>"}
+</div>
+</div>
 </section>
-{music_html}
 """
 
 
@@ -318,15 +337,16 @@ def _num(value):
 
 
 def _music_section_html():
-    """Public 'This week in music' section. Empty string when Last.fm isn't
-    configured or has no data — the page never breaks on music."""
+    """Public 'This week in music' inner content for the life-log card.
+    Empty string when Last.fm isn't configured or has no data — the page
+    never breaks on music."""
     from app import listening
 
     tracks = listening.weekly_tracks(limit=5)
     artists = listening.weekly_artists(limit=5)
     if not tracks and not artists:
         return ""
-    parts = ['<section class="music-section">', '<h2>This week in music</h2>']
+    parts = []
     if tracks:
         items = "".join(
             "<li>{title} — <span class=\"macros\">{artist}</span> "
@@ -337,7 +357,7 @@ def _music_section_html():
             )
             for t in tracks
         )
-        parts.append(f"<h3>Top tracks</h3><ul class=\"music-list\">{items}</ul>")
+        parts.append(f"<h4>Top tracks</h4><ul class=\"music-list\">{items}</ul>")
     if artists:
         items = "".join(
             "<li>{name} <span class=\"macros\">({plays} plays)</span></li>".format(
@@ -346,10 +366,9 @@ def _music_section_html():
             )
             for a in artists
         )
-        parts.append(f"<h3>Top artists</h3><ul class=\"music-list\">{items}</ul>")
+        parts.append(f"<h4>Top artists</h4><ul class=\"music-list\">{items}</ul>")
     parts.append(
         '<p class="macros">Listening data by '
         '<a href="https://www.last.fm">Last.fm</a>.</p>'
     )
-    parts.append('</section>')
     return "\n".join(parts)
