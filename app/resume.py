@@ -378,7 +378,7 @@ def render_portfolio_html(now_playing_html=""):
         for job in EXPERIENCE
     )
     projects = "".join(
-        f"<article class=\"tile proj reveal p{i + 1}{' id=\"projects\"' if i == 0 else ''}\">"
+        f"<article class=\"tile proj reveal p{i + 1}\"{' id=\"projects\"' if i == 0 else ''}>"
         "<p class=\"eyebrow\">project</p>"
         "<div class=\"proj-top\">"
         "<svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\" fill=\"none\" "
