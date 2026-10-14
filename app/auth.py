@@ -296,38 +296,46 @@ def render_public_home():
     music_html = _music_section_html()
 
     return f"""
-{render_portfolio_html()}
+{render_portfolio_html(now_playing_html=_now_playing_tile_html())}
 {render_life_html(data, sess_html, bw_html, meal_html, music_html)}
 {render_contact_html()}
 """
 
 
+def _now_playing_tile_html():
+    """Top track this week, for the bento 'now playing' tile."""
+    from app import listening
+
+    tracks = listening.weekly_tracks(limit=1)
+    if not tracks:
+        return ""
+    t = tracks[0]
+    return (
+        '<p class="track">' + html.escape(t["title"]) + "</p>"
+        '<p class="artist muted">' + html.escape(t["artist"])
+        + f" <span class=\"plays\">{t['playcount']} plays</span></p>"
+    )
+
+
 def render_life_html(data, sess_html, bw_html, meal_html, music_html):
-    """Grouped 'Life log' section: training, food, and music in one place."""
+    """Life log as bento tiles: workouts, food, music."""
     return f"""
-<section class="block reveal" id="life">
-<h2 class="sec"><span class="num">04.</span> Life log <span class="rule"></span></h2>
-<p class="muted">The human behind the commits — last 7 days
-({data["start_date"]} → {data["end_date"]}). Full history is private —
+<article class="tile life reveal l1" id="life">
+<p class="eyebrow">life log \u00b7 workouts <span class="count">{data["session_count"]}</span></p>
+<p class="muted small">Last 7 days ({data["start_date"]} \u2192 {data["end_date"]}). Full history is private —
 <a href="/login">log in</a> for everything.</p>
-<div class="life-grid">
-<div class="life-card">
-<h3>Workouts <span class="count">{data["session_count"]}</span></h3>
 {sess_html}
-</div>
-<div class="life-card">
-<h3>Bodyweight</h3>
+<h4>Bodyweight</h4>
 {bw_html}
-</div>
-<div class="life-card">
-<h3>Food</h3>
+</article>
+<article class="tile life reveal l2">
+<p class="eyebrow">life log \u00b7 food</p>
 {meal_html}
-</div>
-<div class="life-card">
-<h3>Music</h3>
+</article>
+<article class="tile life reveal l3">
+<p class="eyebrow">life log \u00b7 music</p>
 {music_html or "<p class='muted'>No scrobbles this week.</p>"}
-</div>
-</div>
+</article>
 </section>
 """
 
