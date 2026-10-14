@@ -13,7 +13,6 @@ def test_public_home_shows_portfolio(anon_client):
     for needle in (
         "Anirudh Yarram",
         "Software Engineer",
-        "Open to new opportunities",
         "Mechdyne",
         "Neubode",
         "CareTech",
@@ -22,6 +21,9 @@ def test_public_home_shows_portfolio(anon_client):
     ):
         assert needle in body, needle
     assert "Sustainik" not in body
+    # No job-search signals on the public page (current-employer discretion).
+    assert "Open to new opportunities" not in body
+    assert "open to new opportunities" not in body
 
 
 def test_public_home_keeps_training_log(anon_client):

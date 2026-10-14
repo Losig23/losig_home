@@ -312,6 +312,7 @@ a { color: var(--green); }
 .proj { display: flex; flex-direction: column; }
 .proj-top { display: flex; justify-content: space-between; align-items: center;
   color: var(--green); margin-bottom: 0.9rem; }
+.proj-top svg, .social-row svg { display: block; }
 .proj-links { display: flex; gap: 0.65rem; }
 .proj-links a { color: var(--muted); }
 .proj-links a:hover { color: var(--green-hi); }
@@ -417,7 +418,7 @@ def render_portfolio_html(now_playing_html=""):
 <a class="btn" href="/game">Immerse me</a>
 <a class="btn ghost" href="mailto:{html.escape(EMAIL)}">Say hello</a>
 </div>
-<p class="meta">{html.escape(LOCATION)} \u00b7 <span class="open">{html.escape(OPEN_TO_WORK)}</span></p>
+<p class="meta">{html.escape(LOCATION)}</p>
 </article>
 <article class="tile now reveal">
 <p class="eyebrow">\u266a now playing</p>
@@ -440,8 +441,8 @@ def render_portfolio_html(now_playing_html=""):
 </div>
 </article>
 <article class="tile about reveal" id="about">
-<p class="eyebrow">about</p>
-<p>{html.escape(TAGLINE)}</p>
+<p class="eyebrow">skills</p>
+<p class="muted">The tools I reach for across the stack — backends, data pipelines, and front ends.</p>
 <div class="pills">{skills}</div>
 </article>
 <article class="tile status reveal">
@@ -449,7 +450,6 @@ def render_portfolio_html(now_playing_html=""):
 <p class="big">{html.escape(EXPERIENCE[0]['title'])} <span class="at">@ {html.escape(EXPERIENCE[0]['company'])}</span></p>
 <p class="muted">{html.escape(LOCATION)}</p>
 <p class="edu">\U0001f393 {html.escape(EDUCATION[0]['school'])}<br><span class="muted">{html.escape(EDUCATION[0]['detail'])}</span></p>
-<p><span class="badge">{html.escape(OPEN_TO_WORK)}</span></p>
 </article>
 <article class="tile exp reveal" id="experience">
 <p class="eyebrow">experience</p>
@@ -464,9 +464,8 @@ def render_contact_html():
 <article class="tile contact reveal" id="contact">
 <p class="eyebrow">contact</p>
 <h2>Get in touch</h2>
-<p class="muted">I&rsquo;m currently {html.escape(OPEN_TO_WORK.lower())} &mdash;
-my inbox is always open, whether you have a role in mind or just want
-to talk shop.</p>
+<p class="muted">My inbox is always open — whether you have a role in mind,
+a project to talk about, or just want to say hi.</p>
 <a class="btn" href="mailto:{html.escape(EMAIL)}">Say hello</a>
 </article>
 """
