@@ -26,7 +26,8 @@ def test_public_home_shows_portfolio(anon_client):
 
 def test_public_home_keeps_training_log(anon_client):
     body = _body(anon_client)
-    assert "Training log" in body
+    assert "Life log" in body
+    assert "Workouts" in body
     assert "/login" in body
 
 
