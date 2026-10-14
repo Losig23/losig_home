@@ -102,8 +102,8 @@ PROJECTS = [
     {
         "name": "TuneSage",
         "blurb": "AI music-recommendation platform: Flask + SQLite, TF-IDF "
-        "taste-profile similarity, Reddit sentiment mining, feedback "
-        "learning, Last.fm scrobble import.",
+        "taste-profile similarity, similar-artist candidate mining via Last.fm, "
+        "feedback learning, Last.fm scrobble import.",
         "links": [("GitHub", "https://github.com/Losig23/tunesage")],
         "tech": ["Flask", "TF-IDF", "Last.fm", "SQLite"],
     },
