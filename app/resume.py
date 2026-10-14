@@ -107,15 +107,6 @@ PROJECTS = [
         "links": [("GitHub", "https://github.com/Losig23/tunesage")],
         "tech": ["Flask", "TF-IDF", "Last.fm", "SQLite"],
     },
-    {
-        "name": "Apartment game",
-        "blurb": "Walkable 3D apartment in the browser — Three.js, cel shading "
-        "with screen-space ink outlines, procedural anime character. Every "
-        "object is a live view into my training, food, music, and gaming "
-        "data through this site's REST API.",
-        "links": [("Play", "/game"), ("GitHub", "https://github.com/Losig23/losig_home")],
-        "tech": ["Three.js", "GLSL", "REST"],
-    },
 ]
 
 SKILLS = [
@@ -208,7 +199,7 @@ a { color: var(--green); }
     "hero hero hero hero links links"
     "about about about status status status"
     "exp exp exp exp exp exp"
-    "p1 p1 p2 p2 p3 p3"
+    "p1 p1 p1 p2 p2 p2"
     "l1 l1 l2 l2 l3 l3"
     "contact contact contact contact contact contact";
   max-width: 1220px; margin: 0 auto;
@@ -230,7 +221,7 @@ a { color: var(--green); }
 .about { grid-area: about; }
 .status { grid-area: status; }
 .exp { grid-area: exp; }
-.p1 { grid-area: p1; } .p2 { grid-area: p2; } .p3 { grid-area: p3; }
+.p1 { grid-area: p1; } .p2 { grid-area: p2; }
 .l1 { grid-area: l1; } .l2 { grid-area: l2; } .l3 { grid-area: l3; }
 .contact { grid-area: contact; }
 
@@ -317,7 +308,7 @@ a { color: var(--green); }
 .proj-links a { color: var(--muted); }
 .proj-links a:hover { color: var(--green-hi); }
 .proj h3 { margin: 0 0 0.5rem; font-size: 1.2rem; }
-.proj p { font-size: 0.93rem; flex: 1; }
+.proj .blurb { font-size: 0.93rem; flex: 1; }
 .proj .tags { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; }
 .proj .tags span { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
 
@@ -354,7 +345,7 @@ a { color: var(--green); }
     grid-template-columns: 1fr;
     grid-template-areas:
       "hero" "now" "links" "about" "status" "exp"
-      "p1" "p2" "p3" "l1" "l2" "l3" "contact";
+      "p1" "p2" "l1" "l2" "l3" "contact";
     padding: 4.6rem 1rem 1.5rem;
   }
   .hero .name { font-size: clamp(2.4rem, 13vw, 3.4rem); }
@@ -394,7 +385,7 @@ def render_portfolio_html(now_playing_html=""):
         )
         + "</div></div>"
         f"<h3>{html.escape(p['name'])}</h3>"
-        f"<p class=\"muted\">{html.escape(p['blurb'])}</p>"
+        f"<p class=\"muted blurb\">{html.escape(p['blurb'])}</p>"
         + (
             "<div class=\"tags\">"
             + "".join(f"<span>{html.escape(t)}</span>" for t in p.get("tech", []))
