@@ -13,7 +13,6 @@ TAGLINE = (
     "reliable systems end to end, from data pipelines to the UI."
 )
 LOCATION = "Marshalltown, IA"
-OPEN_TO_WORK = "Open to new opportunities"
 EMAIL = "anirudhyarram@gmail.com"
 GITHUB_URL = "https://github.com/Losig23"
 LINKEDIN_URL = "https://www.linkedin.com/in/anirudh-yarram-7a38ba18b/"
@@ -456,8 +455,8 @@ def render_contact_html():
 <article class="tile contact reveal" id="contact">
 <p class="eyebrow">contact</p>
 <h2>Get in touch</h2>
-<p class="muted">My inbox is always open — whether you have a role in mind,
-a project to talk about, or just want to say hi.</p>
+<p class="muted">My inbox is always open — whether you have a project to talk
+about, or just want to say hi.</p>
 <a class="btn" href="mailto:{html.escape(EMAIL)}">Say hello</a>
 </article>
 """
