@@ -133,6 +133,49 @@ a.dash-card:hover {
 .dash-card .sub { color: var(--muted); font-size: 0.85rem; }
 .dash-card .empty { color: var(--muted); font-style: italic; }
 
+/* ---- dashboard (logged-in home): command-center layout ---- */
+.dash-head {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0 1.1rem;
+}
+.dash-head .eyebrow {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent); margin: 0 0 0.35rem;
+}
+.dash-head h1 { font-size: 2rem; margin: 0 0 0.3rem; letter-spacing: -0.01em; }
+.dash-head .muted { color: var(--muted); margin: 0; }
+.quick-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.qa {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.55rem 1rem; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  color: var(--text); text-decoration: none; font-size: 0.9rem;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.qa:hover { border-color: var(--accent); transform: translateY(-1px); color: var(--accent-hi); }
+.dash-grid {
+  display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr);
+  grid-template-areas:
+    "week week bw"
+    "week week food"
+    "analyzer travel strength";
+}
+.dash-grid .dash-card { margin: 0; }
+.g-week { grid-area: week; }
+.g-bw { grid-area: bw; }
+.g-food { grid-area: food; }
+.g-analyzer { grid-area: analyzer; }
+.g-travel { grid-area: travel; }
+.g-strength { grid-area: strength; }
+.g-week .big { font-size: 2.6rem; }
+@media (max-width: 760px) {
+  .dash-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: "week" "bw" "food" "analyzer" "travel" "strength";
+  }
+  .dash-head h1 { font-size: 1.6rem; }
+}
+
 /* ---- buttons ---- */
 .btn {
   display: inline-block;

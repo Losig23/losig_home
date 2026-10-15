@@ -69,36 +69,53 @@ def _dashboard_body(bw, meals, meal_totals, today, week_sessions, travel,
         for k, n in sorted(verdict_counts.items()) if n
     ) or '<span class="empty">log sets to get verdicts</span>'
 
+    from datetime import datetime
+    hour = datetime.now().hour
+    greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 18 else "Good evening"
+    dateline = datetime.now().strftime("%A, %B %-d")
+
     return f"""
-<h1>Dashboard</h1>
-<p style="color:var(--muted)">losig_home at a glance — {html.escape(today)}</p>
-<div class="card-grid">
-  <a class="dash-card" href="/bodyweight">
-    <div class="kicker">Bodyweight</div>
-    <div class="big">{bw_main}</div>
-    <div class="sub">{bw_sub}</div>
-  </a>
-  <a class="dash-card" href="/food">
-    <div class="kicker">Food · today</div>
-    <div class="big">{meal_main}</div>
-    <div class="sub">{meal_sub}</div>
-  </a>
-  <a class="dash-card" href="/log">
+<div class="dash-head">
+  <div>
+    <p class="eyebrow">Dashboard · {html.escape(dateline)}</p>
+    <h1>{greeting}, Ani.</h1>
+    <p class="muted">Your week at a glance.</p>
+  </div>
+  <a class="btn" href="/log">+ Log workout</a>
+</div>
+<div class="quick-actions">
+  <a class="qa" href="/log">🏋️ Log workout</a>
+  <a class="qa" href="/food">🍽️ Log meal</a>
+  <a class="qa" href="/bodyweight">⚖️ Weigh in</a>
+  <a class="qa" href="/diary">📝 Diary</a>
+</div>
+<div class="dash-grid">
+  <a class="dash-card g-week" href="/log">
     <div class="kicker">Workouts · this week</div>
     <div class="big">{len(week_sessions)}</div>
     <div class="sub">{sess_sub}</div>
   </a>
-  <a class="dash-card" href="/travel">
-    <div class="kicker">Travel</div>
-    <div class="big">{travel_main}</div>
-    <div class="sub">{travel_sub}</div>
+  <a class="dash-card g-bw" href="/bodyweight">
+    <div class="kicker">Bodyweight</div>
+    <div class="big">{bw_main}</div>
+    <div class="sub">{bw_sub}</div>
   </a>
-  <a class="dash-card" href="/analysis">
+  <a class="dash-card g-food" href="/food">
+    <div class="kicker">Food · today</div>
+    <div class="big">{meal_main}</div>
+    <div class="sub">{meal_sub}</div>
+  </a>
+  <a class="dash-card g-analyzer" href="/analysis">
     <div class="kicker">Analyzer</div>
     <div class="big">{sum(verdict_counts.values())} exercises</div>
     <div class="sub">{verdict_bits}</div>
   </a>
-  <a class="dash-card" href="/progress">
+  <a class="dash-card g-travel" href="/travel">
+    <div class="kicker">Travel</div>
+    <div class="big">{travel_main}</div>
+    <div class="sub">{travel_sub}</div>
+  </a>
+  <a class="dash-card g-strength" href="/progress">
     <div class="kicker">Strength</div>
     <div class="big">charts</div>
     <div class="sub">per-exercise est-1RM curves with PR stars</div>
