@@ -138,9 +138,9 @@ def analyze_exercise(exercise):
 
 
 PAGE_STYLE = """<style>
-body{font-family:system-ui,sans-serif;color:#111827}
+body{font-family:system-ui,sans-serif;color:var(--text)}
 .day{margin-top:2rem}
-.card{border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1rem;
+.card{border:1px solid var(--line);border-radius:8px;padding:.75rem 1rem;
 margin:.6rem 0}
 .card .head{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
 .card .head a{font-weight:600}
@@ -149,13 +149,13 @@ color:#fff;text-transform:uppercase;letter-spacing:.03em}
 .badge.progressing{background:#16a34a}
 .badge.plateau{background:#d97706}
 .badge.regressing{background:#dc2626}
-.badge.insufficient_data{background:#6b7280}
-.meta{color:#6b7280;font-size:.9rem;margin-top:.3rem}
+.badge.insufficient_data{background:var(--muted)}
+.meta{color:var(--muted);font-size:.9rem;margin-top:.3rem}
 .rest{font-size:.9rem;margin-top:.3rem;color:#374151}
 .dim{opacity:.55}
-a{color:#2563eb}
+a{color:var(--accent)}
 .spark{vertical-align:middle;margin-left:.5rem}
-.rules{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;
+.rules{background:var(--surface);border:1px solid var(--line);border-radius:8px;
 padding:.75rem 1rem;font-size:.9rem;color:#374151}
 </style>"""
 
