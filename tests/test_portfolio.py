@@ -13,7 +13,6 @@ def test_public_home_shows_portfolio(anon_client):
     for needle in (
         "Anirudh Yarram",
         "Software Engineer",
-        "Open to new opportunities",
         "Mechdyne",
         "Neubode",
         "CareTech",
@@ -22,11 +21,23 @@ def test_public_home_shows_portfolio(anon_client):
     ):
         assert needle in body, needle
     assert "Sustainik" not in body
+    # No job-search signals on the public page (current-employer discretion).
+    assert "Open to new opportunities" not in body
+    assert "open to new opportunities" not in body
+
+
+def test_anchor_ids_are_well_formed(anon_client):
+    """Regression: section ids must be real attributes, not text swallowed
+    inside the class attribute (which silently breaks anchor navigation)."""
+    body = _body(anon_client)
+    for anchor in ("about", "experience", "projects", "life", "contact"):
+        assert f'" id="{anchor}"' in body or f" id=\"{anchor}\">" in body, anchor
 
 
 def test_public_home_keeps_training_log(anon_client):
     body = _body(anon_client)
-    assert "Training log" in body
+    assert "life log" in body
+    assert "workouts" in body
     assert "/login" in body
 
 

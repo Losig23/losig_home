@@ -21,19 +21,20 @@ def test_postgresql_scheme_untouched():
 def test_all_postgres_url_forms_resolve_dbapi():
     """Regression: every postgres URL form we might be handed must resolve
     an installed DBAPI at engine-creation time (no live server needed).
-    Plain ``postgresql://`` uses psycopg2 (SQLAlchemy's default dialect);
-    Neon's ``postgresql+psycopg://`` flavor uses psycopg v3 — we ship both
-    drivers so no form can ModuleNotFoundError at deploy."""
+    We ship both psycopg2 and psycopg (v3), so any resolution to either
+    driver is fine — what must never happen is a ModuleNotFoundError at
+    deploy. (Plain ``postgresql://`` defaulted to psycopg2 through
+    SQLAlchemy 2.0; SQLAlchemy 2.1+ defaults it to psycopg.)"""
     import sqlalchemy as sa
 
-    cases = {
-        "postgres://u:p@host:5432/db": "psycopg2",
-        "postgresql://u:p@host:5432/db": "psycopg2",
-        "postgresql+psycopg://u:p@host:5432/db": "psycopg",
-    }
-    for raw, expected_dbapi in cases.items():
+    cases = [
+        "postgres://u:p@host:5432/db",
+        "postgresql://u:p@host:5432/db",
+        "postgresql+psycopg://u:p@host:5432/db",
+    ]
+    for raw in cases:
         engine = sa.create_engine(_normalize_database_url(raw))
-        assert engine.dialect.dbapi.__name__ == expected_dbapi, raw
+        assert engine.dialect.dbapi.__name__ in ("psycopg2", "psycopg"), raw
         engine.dispose()
 
 

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anirudh Yarram — Software Engineer</title>
+<meta name="description" content="Anirudh Yarram — Software Engineer. Portfolio, projects, and a live life log.">
+{{ styles|safe }}
+</head>
+<body id="top">
+<header class="topbar">
+  <a class="logo" href="#top" aria-label="Back to top">AY</a>
+  <nav class="nav" aria-label="Sections">
+    <a href="#about">About</a>
+    <a href="#experience">Experience</a>
+    <a href="#projects">Projects</a>
+    <a href="#life">Life</a>
+    <a href="#contact">Contact</a>
+  </nav>
+  <div class="nav-ext">
+    <a href="/game">Game</a>
+    <a href="/login">Login</a>
+  </div>
+</header>
+<main class="bento">
+{{ content|safe }}
+</main>
+<footer class="foot">
+  <p>Designed &amp; built by Anirudh Yarram — Flask, Postgres, and too much green.</p>
+</footer>
+<script>
+(function () {
+  var els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) {
+    els.forEach(function (el) { el.classList.add('in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.1 });
+  els.forEach(function (el) { io.observe(el); });
+})();
+</script>
+</body>
+</html>

@@ -244,7 +244,7 @@ def api_public_week():
 def render_public_home():
     """Server-rendered public page for logged-out visitors: recruiter-facing
     portfolio first, then the live training log."""
-    from app.resume import render_portfolio_html
+    from app.resume import render_contact_html, render_portfolio_html
 
     data = public_week_data()
 
@@ -296,20 +296,47 @@ def render_public_home():
     music_html = _music_section_html()
 
     return f"""
-{render_portfolio_html()}
-<section class="training-log">
-<h2>Training log</h2>
-<p style="color:#6b7280">What I've been up to in the gym — last 7 days
-({data["start_date"]} → {data["end_date"]}). Full history is private —
+{render_portfolio_html(now_playing_html=_now_playing_tile_html())}
+{render_life_html(data, sess_html, bw_html, meal_html, music_html)}
+{render_contact_html()}
+"""
+
+
+def _now_playing_tile_html():
+    """Top track this week, for the bento 'now playing' tile."""
+    from app import listening
+
+    tracks = listening.weekly_tracks(limit=1)
+    if not tracks:
+        return ""
+    t = tracks[0]
+    return (
+        '<p class="track">' + html.escape(t["title"]) + "</p>"
+        '<p class="artist muted">' + html.escape(t["artist"])
+        + f" <span class=\"plays\">{t['playcount']} plays</span></p>"
+    )
+
+
+def render_life_html(data, sess_html, bw_html, meal_html, music_html):
+    """Life log as bento tiles: workouts, food, music."""
+    return f"""
+<article class="tile life reveal l1" id="life">
+<p class="eyebrow">life log \u00b7 workouts <span class="count">{data["session_count"]}</span></p>
+<p class="muted small">Last 7 days ({data["start_date"]} \u2192 {data["end_date"]}). Full history is private —
 <a href="/login">log in</a> for everything.</p>
-<h3>Workouts ({data["session_count"]} sessions)</h3>
 {sess_html}
-<h3>Bodyweight</h3>
+<h4>Bodyweight</h4>
 {bw_html}
-<h3>Food</h3>
+</article>
+<article class="tile life reveal l2">
+<p class="eyebrow">life log \u00b7 food</p>
 {meal_html}
+</article>
+<article class="tile life reveal l3">
+<p class="eyebrow">life log \u00b7 music</p>
+{music_html or "<p class='muted'>No scrobbles this week.</p>"}
+</article>
 </section>
-{music_html}
 """
 
 
@@ -318,15 +345,16 @@ def _num(value):
 
 
 def _music_section_html():
-    """Public 'This week in music' section. Empty string when Last.fm isn't
-    configured or has no data — the page never breaks on music."""
+    """Public 'This week in music' inner content for the life-log card.
+    Empty string when Last.fm isn't configured or has no data — the page
+    never breaks on music."""
     from app import listening
 
     tracks = listening.weekly_tracks(limit=5)
     artists = listening.weekly_artists(limit=5)
     if not tracks and not artists:
         return ""
-    parts = ['<section class="music-section">', '<h2>This week in music</h2>']
+    parts = []
     if tracks:
         items = "".join(
             "<li>{title} — <span class=\"macros\">{artist}</span> "
@@ -337,7 +365,7 @@ def _music_section_html():
             )
             for t in tracks
         )
-        parts.append(f"<h3>Top tracks</h3><ul class=\"music-list\">{items}</ul>")
+        parts.append(f"<h4>Top tracks</h4><ul class=\"music-list\">{items}</ul>")
     if artists:
         items = "".join(
             "<li>{name} <span class=\"macros\">({plays} plays)</span></li>".format(
@@ -346,10 +374,9 @@ def _music_section_html():
             )
             for a in artists
         )
-        parts.append(f"<h3>Top artists</h3><ul class=\"music-list\">{items}</ul>")
+        parts.append(f"<h4>Top artists</h4><ul class=\"music-list\">{items}</ul>")
     parts.append(
         '<p class="macros">Listening data by '
         '<a href="https://www.last.fm">Last.fm</a>.</p>'
     )
-    parts.append('</section>')
     return "\n".join(parts)

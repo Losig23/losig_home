@@ -219,16 +219,14 @@ def dashboard():
     from flask_login import current_user
 
     if not current_user.is_authenticated:
-        # Public portfolio + weekly training log: no photos, no full history.
+        # Public portfolio: standalone page (own sidebar nav,
+        # black/green theme) — no base.html chrome.
         from app.resume import PORTFOLIO_STYLES
 
         return render_template(
-            "base.html",
-            title="Anirudh Yarram — Software Engineer",
-            page_styles=f"<style>{PORTFOLIO_STYLES}</style>",
+            "portfolio.html",
+            styles=f"<style>{PORTFOLIO_STYLES}</style>",
             content=render_public_home(),
-            nav=get_nav(),
-            active="home",
         )
     bw = bodyweight_stats()
     today = date.today().isoformat()
