@@ -13,18 +13,18 @@ from flask import render_template
 from flask_login import current_user
 
 NAV = [
-    {"key": "dashboard", "label": "Dashboard", "url": "/"},
-    {"key": "log", "label": "Log Workout", "url": "/log"},
-    {"key": "progress", "label": "Progress", "url": "/progress"},
-    {"key": "analysis", "label": "Analysis", "url": "/analysis"},
-    {"key": "bodyweight", "label": "Bodyweight", "url": "/bodyweight"},
-    {"key": "travel", "label": "Travel", "url": "/travel"},
-    {"key": "calendar", "label": "Calendar", "url": "/calendar"},
-    {"key": "food", "label": "Food", "url": "/food"},
-    {"key": "gaming", "label": "Gaming", "url": "/gaming"},
-    {"key": "diary", "label": "Diary", "url": "/diary"},
-    {"key": "music", "label": "Music", "url": "/music"},
-    {"key": "game", "label": "Game", "url": "/game"},
+    {"key": "dashboard", "label": "Dashboard", "url": "/", "icon": "📊"},
+    {"key": "log", "label": "Log Workout", "url": "/log", "icon": "🏋️"},
+    {"key": "progress", "label": "Progress", "url": "/progress", "icon": "📈"},
+    {"key": "analysis", "label": "Analysis", "url": "/analysis", "icon": "🔍"},
+    {"key": "bodyweight", "label": "Bodyweight", "url": "/bodyweight", "icon": "⚖️"},
+    {"key": "travel", "label": "Travel", "url": "/travel", "icon": "✈️"},
+    {"key": "calendar", "label": "Calendar", "url": "/calendar", "icon": "📅"},
+    {"key": "food", "label": "Food", "url": "/food", "icon": "🍽️"},
+    {"key": "gaming", "label": "Gaming", "url": "/gaming", "icon": "🎮"},
+    {"key": "diary", "label": "Diary", "url": "/diary", "icon": "📝"},
+    {"key": "music", "label": "Music", "url": "/music", "icon": "🎵"},
+    {"key": "game", "label": "Game", "url": "/game", "icon": "🕹️"},
 ]
 
 NAV_PUBLIC = [
