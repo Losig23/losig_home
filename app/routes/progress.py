@@ -252,8 +252,19 @@ body{font-family:system-ui,sans-serif;color:var(--text)}
 .card b{font-size:1.4rem}.card span{color:var(--muted);font-size:.85rem}
 table{border-collapse:collapse;margin-top:1rem;width:100%}
 td,th{border:1px solid var(--line);padding:.4rem .8rem;text-align:left}
-.day{margin-top:2rem}a{color:var(--accent)}
-.day li{margin:.35rem 0}.spark{vertical-align:middle;margin-left:.5rem}
+a{color:var(--accent)}
+.day-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-top:1.25rem}
+.day-panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.1rem 1.25rem}
+.day-panel .kicker{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--pop);margin:0 0 .2rem}
+.day-panel h2{margin:0 0 .8rem;font-size:1.15rem}
+.ex-rows{display:flex;flex-direction:column;gap:.45rem}
+.ex-row{display:flex;align-items:center;gap:.6rem;text-decoration:none;color:var(--text);
+  background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem}
+.ex-row:hover{border-color:var(--pop)}
+.ex-row .ex-name{flex:1;font-weight:600;font-size:.92rem}
+.ex-row .ex-1rm{font-family:var(--mono,monospace);font-size:.82rem;color:var(--accent);white-space:nowrap}
+.ex-row .ex-1rm.none{color:var(--muted)}
+.ex-row .spark{margin-left:auto;line-height:0}
 </style>"""
 
 
@@ -312,35 +323,38 @@ def render_exercise_page(exercise, progress):
 
 def render_index_page():
     days = RoutineDay.query.order_by(RoutineDay.day_number).all()
-    sections = ""
+    panels = ""
     for day in days:
-        items = ""
+        rows = ""
         for ex in day.exercises:
             progress = exercise_progress(ex)
             current = progress["summary"]["current_est_1rm_lb"]
-            label = (
-                f" — {current:.1f} lb est 1RM" if current is not None else ""
-            )
+            if current is not None:
+                label = f'<span class="ex-1rm">{current:.1f} lb</span>'
+            else:
+                label = '<span class="ex-1rm none">—</span>'
             spark = ""
             values = [p["est_1rm_lb"] for p in progress["series"]]
             if len(values) >= 2:
                 spark = f'<span class="spark">{sparkline(values)}</span>'
-            items += (
-                f'<li><a href="/exercises/{ex.id}/progress">'
-                f'{html.escape(ex.name)}</a>{label}{spark}</li>'
+            rows += (
+                f'<a class="ex-row" href="/exercises/{ex.id}/progress">'
+                f'<span class="ex-name">{html.escape(ex.name)}</span>'
+                f"{label}{spark}</a>"
             )
-        sections += (
-            f'<div class="day"><h2>Day {day.day_number} — '
-            f"{html.escape(day.name)}</h2><ul>{items}</ul></div>"
+        panels += (
+            f'<section class="day-panel"><p class="kicker">Day {day.day_number}</p>'
+            f"<h2>{html.escape(day.name)}</h2>"
+            f'<div class="ex-rows">{rows}</div></section>'
         )
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <title>Lifting Progress — losig_home</title>{PAGE_STYLE}</head><body>
 <h1>Lifting Progress</h1>
-<p>Estimated one-rep max (Epley: weight × (1 + reps/30)) per exercise,
+<p style="color:var(--muted)">Estimated one-rep max (Epley: weight × (1 + reps/30)) per exercise,
 from your logged sets. Gold ★ marks all-time PR sessions.</p>
-{sections}
+<div class="day-grid">{panels}</div>
 </body></html>"""
 
 

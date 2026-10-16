@@ -356,6 +356,10 @@ a { color: var(--green); }
 def render_portfolio_html(now_playing_html=""):
     """Bento-grid portfolio: hero, now-playing, links, about, status,
     experience, and project tiles."""
+    from app import listening
+
+    updated = listening.last_updated_display("weekly_tracks")
+    updated_html = f" · {html.escape(updated)}" if updated else ""
     jobs = "".join(
         "<article class=\"job\">"
         f"<div class=\"job-head\"><h3>{html.escape(job['title'])} "
@@ -414,7 +418,7 @@ def render_portfolio_html(now_playing_html=""):
 <article class="tile now reveal">
 <p class="eyebrow">\u266a now playing</p>
 {now_playing_html or '<p class="muted">No scrobbles this week.</p>'}
-<p class="src">via <a href="https://www.last.fm">Last.fm</a></p>
+<p class="src">via <a href="https://www.last.fm">Last.fm</a>{updated_html}</p>
 </article>
 <article class="tile links reveal">
 <p class="eyebrow">\u2197 links</p>

@@ -178,7 +178,7 @@ def test_progress_index_page(client, app):
     assert "Day 1" in html
     assert f'href="/exercises/{ex_id}/progress"' in html
     # Latest session logged 50x8 -> Epley 63.3.
-    assert "63.3 lb est 1RM" in html
+    assert "63.3 lb" in html
     assert "<svg" in html  # sparkline for the 2-session exercise
 
 

@@ -83,3 +83,19 @@ def recent_tracks(limit: int = 30):
         lambda: lastfm_client.get_recent_tracks(api_key, username, limit),
     )
     return data or None
+
+
+def last_updated_display(key: str) -> str:
+    """Human 'updated X ago' for a cache key; '' when never fetched."""
+    row = db.session.get(ListeningCache, key)
+    if row is None:
+        return ""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
+    secs = (now - row.fetched_at).total_seconds()
+    if secs < 90:
+        return "updated just now"
+    if secs < 3600:
+        return f"updated {int(secs // 60)}m ago"
+    if secs < 86400:
+        return f"updated {int(secs // 3600)}h ago"
+    return f"updated {int(secs // 86400)}d ago"

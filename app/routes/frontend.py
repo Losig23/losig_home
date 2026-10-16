@@ -494,13 +494,18 @@ def _music_body():
         )
         return f"<ul class=\"music-list\">{rows}</ul>" if rows else "<p>No recent scrobbles.</p>"
 
+    weekly_updated = listening.last_updated_display("weekly_tracks")
+    recent_updated = listening.last_updated_display("recent_tracks")
+    weekly_note = f" <span style=\"color:var(--muted);font-size:.85rem\">({weekly_updated})</span>" if weekly_updated else ""
+    recent_note = f" <span style=\"color:var(--muted);font-size:.85rem\">({recent_updated})</span>" if recent_updated else ""
+
     return (
         "<h1>Music</h1>"
         "<p style=\"color:var(--muted)\">What I've been listening to — "
         "via <a href=\"https://www.last.fm\">Last.fm</a>.</p>"
-        "<h2>Top tracks this week</h2>" + _track_list(tracks) +
-        "<h2>Top artists this week</h2>" + _artist_list(artists) +
-        "<h2>Recently played</h2>" + _recent_list(recent)
+        "<h2>Top tracks this week</h2>" + weekly_note + _track_list(tracks) +
+        "<h2>Top artists this week</h2>" + weekly_note + _artist_list(artists) +
+        "<h2>Recently played</h2>" + recent_note + _recent_list(recent)
     )
 
 
