@@ -188,6 +188,8 @@ a { color: var(--green); }
 }
 .topbar .nav a:hover, .topbar .nav-ext a:hover { color: var(--green-hi); }
 .topbar .nav-ext { margin-left: auto; display: flex; gap: 1.1rem; }
+.menu-btn { display: none; }
+.mobile-menu { display: none; }
 
 /* ---- bento grid ---- */
 .bento {
@@ -283,10 +285,17 @@ a { color: var(--green); }
   border-radius: 999px; padding: 0.3rem 0.95rem;
 }
 
-/* ---- experience ---- */
+/* ---- experience (details/summary accordion; desktop shows all expanded) ---- */
 .job { padding: 1.1rem 0; border-bottom: 1px solid var(--green-dim); }
 .job:first-of-type { padding-top: 0; }
 .job:last-child { border-bottom: none; padding-bottom: 0; }
+.job > summary { list-style: none; }
+.job > summary::-webkit-details-marker { display: none; }
+.job > summary::marker { content: ""; }
+@media (min-width: 641px) {
+  .job:not([open]) > .job-body { display: block; }
+  .job > summary { cursor: default; pointer-events: none; }
+}
 .job-head { display: flex; justify-content: space-between; align-items: baseline;
   gap: 1rem; flex-wrap: wrap; }
 .job-head h3 { margin: 0; font-size: 1.12rem; }
@@ -312,6 +321,7 @@ a { color: var(--green); }
 .proj .tags span { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
 
 /* ---- life tiles ---- */
+.life-compact { display: none; }
 .life h4 { color: var(--green-hi); font-size: 0.95rem; margin: 1rem 0 0.3rem; }
 .life .meal { border-bottom: 1px solid var(--green-dim); padding: 0.5rem 0; }
 .life .meal:last-child { border-bottom: none; }
@@ -332,10 +342,10 @@ a { color: var(--green); }
   padding: 1.5rem 1rem 2.5rem; }
 .foot p { margin: 0; }
 
-/* ---- reveal ---- */
-.reveal { opacity: 0; transform: translateY(22px);
+/* ---- reveal (progressive enhancement: hidden only when JS runs) ---- */
+html.js .reveal { opacity: 0; transform: translateY(22px);
   transition: opacity 0.65s ease, transform 0.65s ease; }
-.reveal.in { opacity: 1; transform: none; }
+html.js .reveal.in { opacity: 1; transform: none; }
 
 /* ---- responsive ---- */
 @media (max-width: 920px) {
@@ -349,6 +359,92 @@ a { color: var(--green); }
   }
   .hero .name { font-size: clamp(2.4rem, 13vw, 3.4rem); }
 }
+
+/* ---- mobile-first (<640px): designed for phones, not stacked desktop ---- */
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .small { font-size: 0.95rem; }
+
+  /* hamburger replaces the link row */
+  .topbar { justify-content: space-between; padding: 0.6rem 1rem; }
+  .topbar .nav-ext { display: none; }
+  .menu-btn {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 44px; min-height: 44px;
+    background: none; border: 1px solid var(--green-dim); border-radius: 10px;
+    color: var(--green); font-size: 1.35rem; cursor: pointer; padding: 0;
+  }
+  .menu-btn:hover { border-color: var(--green); }
+  .mobile-menu {
+    display: none;
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: rgba(5, 8, 10, 0.98);
+    border-bottom: 1px solid var(--green-dim);
+    padding: 0.4rem 1.1rem 0.9rem;
+  }
+  .mobile-menu.open { display: block; }
+  .mobile-menu a {
+    display: flex; align-items: center; min-height: 48px;
+    color: var(--text); text-decoration: none; font-size: 1.02rem;
+    border-bottom: 1px solid rgba(52, 211, 153, 0.1);
+  }
+  .mobile-menu a:last-child { border-bottom: none; }
+  .mobile-menu a:active { color: var(--green-hi); }
+
+  /* priority order: hero, projects, experience, skills, then the rest */
+  .bento { display: flex; flex-direction: column; gap: 1rem; padding: 4.4rem 1rem 1.5rem; }
+  .tile.hero { order: 1; }
+  .tile.proj.p1 { order: 2; }
+  .tile.proj.p2 { order: 3; }
+  .tile.exp { order: 4; }
+  .tile.about { order: 5; }
+  .tile.status { order: 6; }
+  .tile.now { order: 7; }
+  .tile.links { order: 8; }
+  .tile.life-compact { order: 9; }
+  .tile.contact { order: 10; }
+  .tile { padding: 1.35rem; border-radius: 16px; }
+  .tile:hover { transform: none; box-shadow: none; }
+
+  /* collapse the three life tiles into one compact summary */
+  .tile.life.l1, .tile.life.l2, .tile.life.l3 { display: none; }
+  .tile.life-compact { display: block; }
+
+  /* experience accordion */
+  .tile.exp .job {
+    border: 1px solid var(--green-dim); border-radius: 12px;
+    padding: 0; margin-bottom: 0.8rem;
+  }
+  .tile.exp .job:last-child { margin-bottom: 0; padding-bottom: 0; }
+  .tile.exp .job > summary {
+    cursor: pointer; padding: 1rem 1.1rem; min-height: 44px;
+    display: flex; align-items: center;
+  }
+  .tile.exp .job > summary::after {
+    content: "+"; margin-left: auto; flex: none;
+    color: var(--green); font-size: 1.4rem; line-height: 1;
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  }
+  .tile.exp .job[open] > summary::after { content: "\\2013"; }
+  .tile.exp .job-body { padding: 0 1.1rem 1.1rem; }
+  .tile.exp .job .where { margin-top: 0.6rem; }
+
+  /* fluid type + touch targets */
+  .hero .name { font-size: clamp(2.6rem, 15vw, 3.6rem); }
+  .hero .role { font-size: 1.1rem; }
+  .hero .tagline { font-size: 1rem; }
+  .btn {
+    min-height: 48px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.95rem;
+  }
+  .cta .btn { flex: 1 1 100%; }
+  .contact { padding: 2.4rem 1.3rem; }
+  .contact h2 { font-size: clamp(1.7rem, 9vw, 2.2rem); }
+  .pill { font-size: 0.82rem; padding: 0.32rem 0.85rem; }
+  .proj h3 { font-size: 1.15rem; }
+  .proj .blurb { font-size: 1rem; }
+  .foot { padding-bottom: 2rem; }
+}
 """
 
 
@@ -361,15 +457,16 @@ def render_portfolio_html(now_playing_html=""):
     updated = listening.last_updated_display("weekly_tracks")
     updated_html = f" · {html.escape(updated)}" if updated else ""
     jobs = "".join(
-        "<article class=\"job\">"
-        f"<div class=\"job-head\"><h3>{html.escape(job['title'])} "
+        "<details class=\"job\"" + (" open" if i == 0 else "") + ">"
+        f"<summary class=\"job-head\"><h3>{html.escape(job['title'])} "
         f"<span class=\"at\">@ {html.escape(job['company'])}</span></h3>"
-        f"<span class=\"dates\">{html.escape(job['dates'])}</span></div>"
+        f"<span class=\"dates\">{html.escape(job['dates'])}</span></summary>"
+        "<div class=\"job-body\">"
         f"<p class=\"where\">{html.escape(job['location'])}</p>"
         "<ul>"
         + "".join(f"<li>{html.escape(b)}</li>" for b in job["bullets"])
-        + "</ul></article>"
-        for job in EXPERIENCE
+        + "</ul></div></details>"
+        for i, job in enumerate(EXPERIENCE)
     )
     projects = "".join(
         '<article class="tile proj reveal p' + str(i + 1) + '"'

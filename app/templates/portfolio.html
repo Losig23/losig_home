@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Anirudh Yarram — Software Engineer</title>
 <meta name="description" content="Anirudh Yarram — Software Engineer. Portfolio, projects, and a live life log.">
+<script>document.documentElement.classList.add('js');</script>
 {{ styles|safe }}
 </head>
 <body id="top">
@@ -21,6 +22,16 @@
     <a href="/game">Game</a>
     <a href="/login">Login</a>
   </div>
+  <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="mobileMenu">☰</button>
+  <nav class="mobile-menu" id="mobileMenu" aria-label="Sections">
+    <a href="#about">About</a>
+    <a href="#experience">Experience</a>
+    <a href="#projects">Projects</a>
+    <a href="#life-m">Life</a>
+    <a href="#contact">Contact</a>
+    <a href="/game">Game</a>
+    <a href="/login">Login</a>
+  </nav>
 </header>
 <main class="bento">
 {{ content|safe }}
@@ -41,6 +52,21 @@
     });
   }, { threshold: 0.1 });
   els.forEach(function (el) { io.observe(el); });
+
+  var btn = document.getElementById('menuBtn');
+  var menu = document.getElementById('mobileMenu');
+  if (!btn || !menu) return;
+  function setOpen(open) {
+    menu.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+  }
+  btn.addEventListener('click', function () { setOpen(!menu.classList.contains('open')); });
+  menu.addEventListener('click', function (e) {
+    if (e.target.closest('a')) setOpen(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') setOpen(false);
+  });
 })();
 </script>
 </body>

@@ -338,6 +338,12 @@ def render_life_html(data, sess_html, bw_html, meal_html, music_html):
 <p class="eyebrow">life log \u00b7 music</p>
 {music_html or "<p class='muted'>No scrobbles this week.</p>"}
 </article>
+<article class="tile life-compact reveal" id="life-m">
+<p class="eyebrow">life log</p>
+<p>{data["session_count"]} workouts logged in the last 7 days. Full training,
+food, and music history is private.</p>
+<p><a href="/login">Log in to see everything \u2192</a></p>
+</article>
 </section>
 """
 
