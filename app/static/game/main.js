@@ -73,12 +73,63 @@ addEventListener("keydown", (e) => {
 });
 addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
 
-const dir = () => ({
-  w: keys.w || keys.arrowup,
-  a: keys.a || keys.arrowleft,
-  s: keys.s || keys.arrowdown,
-  d: keys.d || keys.arrowright,
+// ---- touch: a floating stick wherever a finger lands on the scene ----
+// Phones are detected by input, not width: the CSS starts in touch mode on
+// (pointer: coarse) screens, and the first real touch or key press flips it,
+// which also covers touchscreen laptops and tablets with keyboards.
+const setTouchMode = (on) => document.body.classList.toggle("touch", on);
+setTouchMode(matchMedia("(pointer: coarse)").matches);
+addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") setTouchMode(true); }, true);
+addEventListener("keydown", (e) => {
+  // on-screen keyboards typing into panel forms fire keydown too
+  if (!e.target.closest?.("input, textarea, select")) setTouchMode(false);
+}, true);
+
+const STICK_R = 56; // px the knob can travel from the base
+const stickEl = document.getElementById("stick");
+const knobEl = stickEl.querySelector(".knob");
+const stick = { id: null, ox: 0, oy: 0, x: 0, z: 0 };
+
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "mouse" || stick.id !== null) return;
+  stick.id = e.pointerId;
+  stick.ox = e.clientX;
+  stick.oy = e.clientY;
+  renderer.domElement.setPointerCapture(e.pointerId);
+  stickEl.style.left = `${e.clientX}px`;
+  stickEl.style.top = `${e.clientY}px`;
+  knobEl.style.transform = "";
+  stickEl.classList.add("on");
 });
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (e.pointerId !== stick.id) return;
+  let dx = e.clientX - stick.ox, dy = e.clientY - stick.oy;
+  const d = Math.hypot(dx, dy);
+  if (d > STICK_R) { dx *= STICK_R / d; dy *= STICK_R / d; }
+  knobEl.style.transform = `translate(${dx}px, ${dy}px)`;
+  // the camera looks straight down -Z, so screen right/down map to +X/+Z
+  const m = Math.min(d, STICK_R) / STICK_R;
+  const pace = m < 0.15 ? 0 : (m - 0.15) / 0.85; // dead zone so a resting thumb stays still
+  stick.x = d ? (dx / Math.min(d, STICK_R)) * pace : 0;
+  stick.z = d ? (dy / Math.min(d, STICK_R)) * pace : 0;
+});
+const releaseStick = (e) => {
+  if (e.pointerId !== stick.id) return;
+  stick.id = null;
+  stick.x = stick.z = 0;
+  stickEl.classList.remove("on");
+};
+renderer.domElement.addEventListener("pointerup", releaseStick);
+renderer.domElement.addEventListener("pointercancel", releaseStick);
+
+// the speech bubble doubles as the interact button on touch
+promptEl.addEventListener("click", () => { if (!panelOpen && nearest) openPanel(nearest); });
+
+const dir = () => {
+  const x = ((keys.d || keys.arrowright) ? 1 : 0) - ((keys.a || keys.arrowleft) ? 1 : 0);
+  const z = ((keys.s || keys.arrowdown) ? 1 : 0) - ((keys.w || keys.arrowup) ? 1 : 0);
+  return x || z ? { x, z } : { x: stick.x, z: stick.z };
+};
 
 // ---- auth: one private probe; 401 means logged out ----
 let authed = false;

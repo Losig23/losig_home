@@ -191,18 +191,20 @@ export function createPlayer(scene) {
     return false;
   }
 
-  function update(dt, keys, colliders) {
-    let dx = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
-    let dz = (keys.s ? 1 : 0) - (keys.w ? 1 : 0);
+  // move: {x, z} in world axes; length 1 is full speed (a touch stick can
+  // push less than that to walk slower)
+  function update(dt, move, colliders) {
+    let dx = move.x, dz = move.z;
     const len = Math.hypot(dx, dz);
     state.moving = len > 0;
     if (len > 0) {
       dx /= len; dz /= len;
       state.dirX = dx; state.dirZ = dz;
-      const step = SPEED * dt;
+      const pace = Math.min(len, 1);
+      const step = SPEED * pace * dt;
       if (!hits(state.x + dx * step, state.z, colliders)) state.x += dx * step;
       if (!hits(state.x, state.z + dz * step, colliders)) state.z += dz * step;
-      state.walkT += dt * 11;
+      state.walkT += dt * 11 * pace;
     }
     g.position.set(state.x, 0, state.z);
     g.rotation.y = Math.atan2(state.dirX, state.dirZ);
