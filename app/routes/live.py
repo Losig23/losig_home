@@ -12,33 +12,34 @@ from flask import Blueprint
 live_bp = Blueprint("live", __name__)
 
 BASE_STYLE = """<style>
-body{font-family:system-ui,sans-serif;color:#111827}
+body{font-family:system-ui,sans-serif;color:var(--text)}
 button{font-size:1rem;padding:.6rem 1rem;border-radius:8px;
-border:1px solid #d1d5db;background:#f3f4f6;cursor:pointer}
-button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
 button:active{transform:scale(.97)}
 .daybtn{display:block;width:100%;margin:.5rem 0;padding:1rem;font-size:1.2rem;
 text-align:left}
-.ex{border:1px solid #e5e7eb;border-radius:10px;margin:.8rem 0;overflow:hidden}
-.exhead{padding:.7rem 1rem;background:#f9fafb;font-weight:600;cursor:pointer;
+.ex{border:1px solid var(--line);border-radius:10px;margin:.8rem 0;overflow:hidden}
+.exhead{padding:.7rem 1rem;background:var(--surface-2);font-weight:600;cursor:pointer;
 display:flex;justify-content:space-between;align-items:center}
 .exbody{padding:.7rem 1rem;display:none}
 .ex.open .exbody{display:block}
-.planned{color:#6b7280;font-size:.9rem;margin-bottom:.5rem}
+.planned{color:var(--muted);font-size:.9rem;margin-bottom:.5rem}
 .logged{font-size:.95rem;margin:.3rem 0}
 .star{color:#f59e0b}
 .logrow{display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap;align-items:end}
-.logrow label{font-size:.8rem;color:#6b7280;display:flex;
+.logrow label{font-size:.8rem;color:var(--muted);display:flex;
 flex-direction:column;gap:.2rem}
 .logrow input{font-size:1.1rem;padding:.5rem;width:5.2rem;border:1px solid
-#d1d5db;border-radius:8px}
+var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+.logrow input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(143,184,176,0.18)}
 .timer{display:flex;gap:.6rem;align-items:center;margin-top:.6rem}
 .tdisp{font-variant-numeric:tabular-nums;font-size:1.4rem;font-weight:700;
 min-width:4.2rem}
-a{color:#2563eb}
-.meta{color:#6b7280;font-size:.9rem}
-.thumb{width:42px;height:42px;border:1px solid #e5e7eb;border-radius:8px;
-background:#fff;flex:none;cursor:zoom-in}
+a{color:var(--accent)}
+.meta{color:var(--muted);font-size:.9rem}
+.thumb{width:42px;height:42px;border:1px solid var(--line);border-radius:8px;
+background:var(--card);flex:none;cursor:zoom-in}
 .thumb.big{width:150px;height:150px;cursor:zoom-out}
 .exname{display:flex;align-items:center;gap:.6rem;flex:1;min-width:0}
 </style>"""

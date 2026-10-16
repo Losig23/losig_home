@@ -161,9 +161,9 @@ def render_progress_svg(progress, width=880, height=420):
         gy = y(val)
         grid.append(
             f'<line x1="{pad["l"]}" y1="{gy:.1f}" x2="{width - pad["r"]}" '
-            f'y2="{gy:.1f}" stroke="#e5e7eb"/>'
+            f'y2="{gy:.1f}" stroke="#2a424c"/>'
             f'<text x="{pad["l"] - 10}" y="{gy + 4:.1f}" text-anchor="end" '
-            f'font-size="12" fill="#6b7280">{val:.0f}</text>'
+            f'font-size="12" fill="#8499a3">{val:.0f}</text>'
         )
 
     # Session ticks with dates (~6 evenly spaced).
@@ -173,15 +173,15 @@ def render_progress_svg(progress, width=880, height=420):
         tx = x(i)
         ticks.append(
             f'<line x1="{tx:.1f}" y1="{height - pad["b"]}" '
-            f'x2="{tx:.1f}" y2="{height - pad["b"] + 6}" stroke="#9ca3af"/>'
+            f'x2="{tx:.1f}" y2="{height - pad["b"] + 6}" stroke="#2a424c"/>'
             f'<text x="{tx:.1f}" y="{height - pad["b"] + 22}" '
-            f'text-anchor="middle" font-size="12" fill="#6b7280">'
+            f'text-anchor="middle" font-size="12" fill="#8499a3">'
             f'{series[i]["date"][5:]}</text>'
         )
 
     pts = " ".join(f"{x(i):.1f},{y(values[i]):.1f}" for i in range(n))
     line = (
-        f'<polyline points="{pts}" fill="none" stroke="#2563eb" '
+        f'<polyline points="{pts}" fill="none" stroke="#8fb8b0" '
         f'stroke-width="2.5"/>'
         if n > 1
         else ""
@@ -191,7 +191,7 @@ def render_progress_svg(progress, width=880, height=420):
     for i, p in enumerate(series):
         px, py = x(i), y(values[i])
         dots += (
-            f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4.5" fill="#2563eb">'
+            f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4.5" fill="#8fb8b0">'
             f"<title>{p['date']}: {p['top_set']['weight_lb']} lb x "
             f"{p['top_set']['reps']} (est 1RM {values[i]:.1f})</title></circle>"
         )
@@ -207,20 +207,20 @@ def render_progress_svg(progress, width=880, height=420):
     for i, label in ((imin, "low"), (imax, "high")):
         annot += (
             f'<text x="{x(i):.1f}" y="{y(values[i]) + 26:.1f}" '
-            f'text-anchor="middle" font-size="12" fill="#6b7280">'
+            f'text-anchor="middle" font-size="12" fill="#8499a3">'
             f"{label} {values[i]:.1f}</text>"
         )
 
     return (
         f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
         f'role="img" aria-label="Estimated one-rep max over time">'
-        f'<rect x="0" y="0" width="{width}" height="{height}" fill="#ffffff"/>'
+        f'<rect x="0" y="0" width="{width}" height="{height}" fill="#14242c"/>'
         f'{"".join(grid)}{"".join(ticks)}'
         f"{line}{dots}{annot}"
         f'<text x="{width - pad["r"]}" y="{pad["t"] - 8}" text-anchor="end" '
-        f'font-size="12" fill="#2563eb">est 1RM (Epley)</text>'
+        f'font-size="12" fill="#8fb8b0">est 1RM (Epley)</text>'
         f'<text x="{pad["l"]}" y="{height - 8}" font-size="12" '
-        f'fill="#6b7280">est 1RM (lb)</text>'
+        f'fill="#8499a3">est 1RM (lb)</text>'
         f"</svg>"
     )
 
@@ -240,20 +240,31 @@ def sparkline(values, width=120, height=28):
     return (
         f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
         f'role="img" aria-label="trend sparkline">'
-        f'<polyline points="{pts}" fill="none" stroke="#2563eb" '
+        f'<polyline points="{pts}" fill="none" stroke="#8fb8b0" '
         f'stroke-width="1.5"/></svg>'
     )
 
 
 PAGE_STYLE = """<style>
-body{font-family:system-ui,sans-serif;color:#111827}
+body{font-family:system-ui,sans-serif;color:var(--text)}
 .stats{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}
-.card{border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1.25rem}
-.card b{font-size:1.4rem}.card span{color:#6b7280;font-size:.85rem}
+.card{border:1px solid var(--line);border-radius:8px;padding:.75rem 1.25rem}
+.card b{font-size:1.4rem}.card span{color:var(--muted);font-size:.85rem}
 table{border-collapse:collapse;margin-top:1rem;width:100%}
-td,th{border:1px solid #e5e7eb;padding:.4rem .8rem;text-align:left}
-.day{margin-top:2rem}a{color:#2563eb}
-.day li{margin:.35rem 0}.spark{vertical-align:middle;margin-left:.5rem}
+td,th{border:1px solid var(--line);padding:.4rem .8rem;text-align:left}
+a{color:var(--accent)}
+.day-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-top:1.25rem}
+.day-panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.1rem 1.25rem}
+.day-panel .kicker{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--pop);margin:0 0 .2rem}
+.day-panel h2{margin:0 0 .8rem;font-size:1.15rem}
+.ex-rows{display:flex;flex-direction:column;gap:.45rem}
+.ex-row{display:flex;align-items:center;gap:.6rem;text-decoration:none;color:var(--text);
+  background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem}
+.ex-row:hover{border-color:var(--pop)}
+.ex-row .ex-name{flex:1;font-weight:600;font-size:.92rem}
+.ex-row .ex-1rm{font-family:var(--mono,monospace);font-size:.82rem;color:var(--accent);white-space:nowrap}
+.ex-row .ex-1rm.none{color:var(--muted)}
+.ex-row .spark{margin-left:auto;line-height:0}
 </style>"""
 
 
@@ -263,7 +274,7 @@ def render_exercise_page(exercise, progress):
     illus = (
         f'<img src="{url_for_exercise(exercise)}" alt="{name} illustration" '
         f'style="float:right;width:110px;height:110px;border:1px solid '
-        f'#e5e7eb;border-radius:10px;background:#fff">'
+        f'var(--line);border-radius:10px;background:var(--card)">'
     )
 
     if not progress["series"]:
@@ -305,42 +316,45 @@ def render_exercise_page(exercise, progress):
 <title>{name} — Progress</title>{PAGE_STYLE}</head><body>
 <p><a href="/progress">← all exercises</a></p>
 {illus}
-<h1>{name} <span style="color:#6b7280;font-size:1rem">progress</span></h1>
+<h1>{name} <span style="color:var(--muted);font-size:1rem">progress</span></h1>
 {body}
 </body></html>"""
 
 
 def render_index_page():
     days = RoutineDay.query.order_by(RoutineDay.day_number).all()
-    sections = ""
+    panels = ""
     for day in days:
-        items = ""
+        rows = ""
         for ex in day.exercises:
             progress = exercise_progress(ex)
             current = progress["summary"]["current_est_1rm_lb"]
-            label = (
-                f" — {current:.1f} lb est 1RM" if current is not None else ""
-            )
+            if current is not None:
+                label = f'<span class="ex-1rm">{current:.1f} lb</span>'
+            else:
+                label = '<span class="ex-1rm none">—</span>'
             spark = ""
             values = [p["est_1rm_lb"] for p in progress["series"]]
             if len(values) >= 2:
                 spark = f'<span class="spark">{sparkline(values)}</span>'
-            items += (
-                f'<li><a href="/exercises/{ex.id}/progress">'
-                f'{html.escape(ex.name)}</a>{label}{spark}</li>'
+            rows += (
+                f'<a class="ex-row" href="/exercises/{ex.id}/progress">'
+                f'<span class="ex-name">{html.escape(ex.name)}</span>'
+                f"{label}{spark}</a>"
             )
-        sections += (
-            f'<div class="day"><h2>Day {day.day_number} — '
-            f"{html.escape(day.name)}</h2><ul>{items}</ul></div>"
+        panels += (
+            f'<section class="day-panel"><p class="kicker">Day {day.day_number}</p>'
+            f"<h2>{html.escape(day.name)}</h2>"
+            f'<div class="ex-rows">{rows}</div></section>'
         )
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <title>Lifting Progress — losig_home</title>{PAGE_STYLE}</head><body>
 <h1>Lifting Progress</h1>
-<p>Estimated one-rep max (Epley: weight × (1 + reps/30)) per exercise,
+<p style="color:var(--muted)">Estimated one-rep max (Epley: weight × (1 + reps/30)) per exercise,
 from your logged sets. Gold ★ marks all-time PR sessions.</p>
-{sections}
+<div class="day-grid">{panels}</div>
 </body></html>"""
 
 

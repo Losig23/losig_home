@@ -63,6 +63,7 @@ def _safe_next(value):
 
 
 _LOGIN_FORM = """
+<div class="login-wrap"><div class="login-card">
 <h1>Log in</h1>
 {error}
 <form method="post" action="/login">
@@ -77,6 +78,7 @@ _LOGIN_FORM = """
   </div>
   <button class="btn" type="submit">Log in</button>
 </form>
+</div></div>
 """
 
 

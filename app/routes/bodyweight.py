@@ -103,9 +103,9 @@ def render_chart_svg(logs, width=880, height=440):
         gy = y(val)
         grid.append(
             f'<line x1="{pad["l"]}" y1="{gy:.1f}" x2="{width - pad["r"]}" '
-            f'y2="{gy:.1f}" stroke="#e5e7eb"/>'
+            f'y2="{gy:.1f}" stroke="#2a424c"/>'
             f'<text x="{pad["l"] - 10}" y="{gy + 4:.1f}" text-anchor="end" '
-            f'font-size="12" fill="#6b7280">{val:.1f}</text>'
+            f'font-size="12" fill="#8499a3">{val:.1f}</text>'
         )
 
     # Date axis ticks (~6 evenly spaced).
@@ -118,7 +118,7 @@ def render_chart_svg(logs, width=880, height=440):
             f'<line x1="{tx:.1f}" y1="{height - pad["b"]}" '
             f'x2="{tx:.1f}" y2="{height - pad["b"] + 6}" stroke="#9ca3af"/>'
             f'<text x="{tx:.1f}" y="{height - pad["b"] + 22}" '
-            f'text-anchor="middle" font-size="12" fill="#6b7280">'
+            f'text-anchor="middle" font-size="12" fill="#8499a3">'
             f'{dates[i].strftime("%m-%d")}</text>'
         )
 
@@ -127,7 +127,7 @@ def render_chart_svg(logs, width=880, height=440):
     avg_pts = " ".join(f"{x(i):.1f},{y(avg[i]):.1f}" for i in range(n))
     dots = "".join(
         f'<circle cx="{x(i):.1f}" cy="{y(weights[i]):.1f}" r="3.5" '
-        f'fill="#2563eb"><title>{dates[i].isoformat()}: {weights[i]} lb</title>'
+        f'fill="#8fb8b0"><title>{dates[i].isoformat()}: {weights[i]} lb</title>'
         f"</circle>"
         for i in range(n)
     )
@@ -140,25 +140,25 @@ def render_chart_svg(logs, width=880, height=440):
         annot += (
             f'<text x="{x(i):.1f}" y="{y(weights[i]) - 12:.1f}" '
             f'text-anchor="middle" font-size="12" font-weight="bold" '
-            f'fill="#111827">{label} {weights[i]:.1f}</text>'
+            f'fill="#d9e2e4">{label} {weights[i]:.1f}</text>'
         )
 
     return (
         f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
         f'role="img" aria-label="Body weight trend chart">'
-        f'<rect x="0" y="0" width="{width}" height="{height}" fill="#ffffff"/>'
+        f'<rect x="0" y="0" width="{width}" height="{height}" fill="#14242c"/>'
         f'{"".join(grid)}{"".join(ticks)}'
-        f'<polyline points="{raw_pts}" fill="none" stroke="#2563eb" '
+        f'<polyline points="{raw_pts}" fill="none" stroke="#8fb8b0" '
         f'stroke-width="2"/>'
         f'<polyline points="{avg_pts}" fill="none" stroke="#f59e0b" '
         f'stroke-width="2" stroke-dasharray="6,4"/>'
         f"{dots}{annot}"
         f'<text x="{width - pad["r"]}" y="{pad["t"] - 8}" text-anchor="end" '
-        f'font-size="12" fill="#2563eb">daily</text>'
+        f'font-size="12" fill="#8fb8b0">daily</text>'
         f'<text x="{width - pad["r"]}" y="{pad["t"] + 10}" text-anchor="end" '
         f'font-size="12" fill="#f59e0b">7-day avg</text>'
         f'<text x="{pad["l"]}" y="{height - 8}" font-size="12" '
-        f'fill="#6b7280">weight (lb)</text>'
+        f'fill="#8499a3">weight (lb)</text>'
         f"</svg>"
     )
 
@@ -188,14 +188,14 @@ def render_chart_page():
 <html lang="en"><head><meta charset="utf-8">
 <title>Body Weight — losig_home</title>
 <style>
-body{{font-family:system-ui,sans-serif;color:#111827}}
+body{{font-family:system-ui,sans-serif;color:var(--text)}}
 .stats{{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}}
-.card{{border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1.25rem}}
-.card b{{font-size:1.4rem}}.card span{{color:#6b7280;font-size:.85rem}}
+.card{{border:1px solid var(--line);border-radius:8px;padding:.75rem 1.25rem}}
+.card b{{font-size:1.4rem}}.card span{{color:var(--muted);font-size:.85rem}}
 table{{border-collapse:collapse;margin-top:1rem}}
-td,th{{border:1px solid #e5e7eb;padding:.4rem .8rem;text-align:left}}
+td,th{{border:1px solid var(--line);padding:.4rem .8rem;text-align:left}}
 form{{margin-top:1.5rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end}}
-label{{display:flex;flex-direction:column;font-size:.85rem;color:#6b7280}}
+label{{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted)}}
 input,button{{padding:.5rem;font-size:1rem}}
 </style></head><body>
 <h1>Body Weight</h1>

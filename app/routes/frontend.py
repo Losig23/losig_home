@@ -69,36 +69,53 @@ def _dashboard_body(bw, meals, meal_totals, today, week_sessions, travel,
         for k, n in sorted(verdict_counts.items()) if n
     ) or '<span class="empty">log sets to get verdicts</span>'
 
+    from datetime import datetime
+    hour = datetime.now().hour
+    greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 18 else "Good evening"
+    dateline = datetime.now().strftime("%A, %B %-d")
+
     return f"""
-<h1>Dashboard</h1>
-<p style="color:#6b7280">losig_home at a glance — {html.escape(today)}</p>
-<div class="card-grid">
-  <a class="dash-card" href="/bodyweight">
-    <div class="kicker">Bodyweight</div>
-    <div class="big">{bw_main}</div>
-    <div class="sub">{bw_sub}</div>
-  </a>
-  <a class="dash-card" href="/food">
-    <div class="kicker">Food · today</div>
-    <div class="big">{meal_main}</div>
-    <div class="sub">{meal_sub}</div>
-  </a>
-  <a class="dash-card" href="/log">
+<div class="dash-head">
+  <div>
+    <p class="eyebrow">Dashboard · {html.escape(dateline)}</p>
+    <h1>{greeting}, Ani.</h1>
+    <p class="muted">Your week at a glance.</p>
+  </div>
+  <a class="btn" href="/log">+ Log workout</a>
+</div>
+<div class="quick-actions">
+  <a class="qa" href="/log">🏋️ Log workout</a>
+  <a class="qa" href="/food">🍽️ Log meal</a>
+  <a class="qa" href="/bodyweight">⚖️ Weigh in</a>
+  <a class="qa" href="/diary">📝 Diary</a>
+</div>
+<div class="dash-grid">
+  <a class="dash-card g-week" href="/log">
     <div class="kicker">Workouts · this week</div>
     <div class="big">{len(week_sessions)}</div>
     <div class="sub">{sess_sub}</div>
   </a>
-  <a class="dash-card" href="/travel">
-    <div class="kicker">Travel</div>
-    <div class="big">{travel_main}</div>
-    <div class="sub">{travel_sub}</div>
+  <a class="dash-card g-bw" href="/bodyweight">
+    <div class="kicker">Bodyweight</div>
+    <div class="big">{bw_main}</div>
+    <div class="sub">{bw_sub}</div>
   </a>
-  <a class="dash-card" href="/analysis">
+  <a class="dash-card g-food" href="/food">
+    <div class="kicker">Food · today</div>
+    <div class="big">{meal_main}</div>
+    <div class="sub">{meal_sub}</div>
+  </a>
+  <a class="dash-card g-analyzer" href="/analysis">
     <div class="kicker">Analyzer</div>
     <div class="big">{sum(verdict_counts.values())} exercises</div>
     <div class="sub">{verdict_bits}</div>
   </a>
-  <a class="dash-card" href="/progress">
+  <a class="dash-card g-travel" href="/travel">
+    <div class="kicker">Travel</div>
+    <div class="big">{travel_main}</div>
+    <div class="sub">{travel_sub}</div>
+  </a>
+  <a class="dash-card g-strength" href="/progress">
     <div class="kicker">Strength</div>
     <div class="big">charts</div>
     <div class="sub">per-exercise est-1RM curves with PR stars</div>
@@ -124,7 +141,7 @@ def _food_body():
     <label>Carbs g <input type="number" id="f-carb" step="any" min="0"></label>
     <label>Fat g <input type="number" id="f-fat" step="any" min="0"></label>
   </div>
-  <p style="color:#6b7280;font-size:.85rem">Manual macros are a fallback — if
+  <p style="color:var(--muted);font-size:.85rem">Manual macros are a fallback — if
   the CalorieNinjas key is configured the description is estimated
   automatically.</p>
   <button class="btn" type="submit">Log meal</button>
@@ -178,7 +195,7 @@ async function loadDay() {
           F ${fmt(m.fat_g, "g")}</div>
       </div>
     </div>`).join("")
-    : "<p style='color:#6b7280'>No meals logged for this day.</p>";
+    : "<p style='color:var(--muted)'>No meals logged for this day.</p>";
 }
 
 $("meal-form").addEventListener("submit", async e => {
@@ -284,7 +301,7 @@ def _gaming_body():
     )
     return f"""
 <h1>Gaming Log</h1>
-<p style="color:#6b7280">What you played — PS5, phone emulators, Minecraft, anything. Feeds the calendar and the apartment game's monitor.</p>
+<p style="color:var(--muted)">What you played — PS5, phone emulators, Minecraft, anything. Feeds the calendar and the apartment game's monitor.</p>
 <form id="game-form" class="form-row" style="margin-bottom:1.5rem">
   <label>Game <input type="text" id="g-title" placeholder="e.g. Elden Ring" required maxlength="200"></label>
   <label>Platform <select id="g-platform">{options}</select></label>
@@ -313,7 +330,7 @@ async function loadGames() {{
         <button class="btn secondary g-delete" type="button">Delete</button>
       </div>
     </div>`).join("")
-    : '<p style="color:#6b7280">Nothing logged yet.</p>';
+    : '<p style="color:var(--muted)">Nothing logged yet.</p>';
   $("game-list").querySelectorAll(".g-delete").forEach(btn => {{
     btn.addEventListener("click", async () => {{
       const id = btn.closest(".meal").dataset.id;
@@ -361,10 +378,10 @@ def gaming_page():
 def _diary_body():
     return """
 <h1>Diary</h1>
-<p style="color:#6b7280">One entry per day — tasks done, things that happened, anything. Private: it never appears on any public page.</p>
+<p style="color:var(--muted)">One entry per day — tasks done, things that happened, anything. Private: it never appears on any public page.</p>
 <div class="form-row" style="margin-bottom:1rem">
   <label>Date <input type="date" id="d-date"></label>
-  <span id="d-status" style="color:#6b7280;align-self:center"></span>
+  <span id="d-status" style="color:var(--muted);align-self:center"></span>
 </div>
 <textarea id="d-text" rows="12" style="width:100%;box-sizing:border-box;padding:0.75rem;font:inherit" placeholder="What did today hold?"></textarea>
 <div style="margin-top:0.75rem">
@@ -477,13 +494,18 @@ def _music_body():
         )
         return f"<ul class=\"music-list\">{rows}</ul>" if rows else "<p>No recent scrobbles.</p>"
 
+    weekly_updated = listening.last_updated_display("weekly_tracks")
+    recent_updated = listening.last_updated_display("recent_tracks")
+    weekly_note = f" <span style=\"color:var(--muted);font-size:.85rem\">({weekly_updated})</span>" if weekly_updated else ""
+    recent_note = f" <span style=\"color:var(--muted);font-size:.85rem\">({recent_updated})</span>" if recent_updated else ""
+
     return (
         "<h1>Music</h1>"
-        "<p style=\"color:#6b7280\">What I've been listening to — "
+        "<p style=\"color:var(--muted)\">What I've been listening to — "
         "via <a href=\"https://www.last.fm\">Last.fm</a>.</p>"
-        "<h2>Top tracks this week</h2>" + _track_list(tracks) +
-        "<h2>Top artists this week</h2>" + _artist_list(artists) +
-        "<h2>Recently played</h2>" + _recent_list(recent)
+        "<h2>Top tracks this week</h2>" + weekly_note + _track_list(tracks) +
+        "<h2>Top artists this week</h2>" + weekly_note + _artist_list(artists) +
+        "<h2>Recently played</h2>" + recent_note + _recent_list(recent)
     )
 
 
@@ -501,14 +523,14 @@ _CALENDAR_STYLES = """
   border:1px solid var(--line);border-radius:10px;padding:.75rem}
 .cal-dow{text-align:center;font-size:.72rem;color:var(--muted);text-transform:uppercase;padding:.25rem}
 .cal-cell{min-height:64px;border:1px solid var(--line);border-radius:6px;padding:.3rem;
-  cursor:pointer;position:relative;background:#fff}
+  cursor:pointer;position:relative;background:var(--card)}
 .cal-cell.blank{background:transparent;border:none;cursor:default}
 .cal-cell:hover{border-color:var(--accent)}
 .cal-cell .cal-num{font-size:.85rem;color:var(--muted)}
 .cal-cell.today{border-color:var(--accent)}
 .cal-cell.today .cal-num{font-weight:700;color:var(--accent)}
-.cal-cell.selected{background:#eff6ff;border-color:var(--accent)}
-.cal-cell.has-sessions{background:#f8fafc}
+.cal-cell.selected{background:rgba(143,184,176,0.16);border-color:var(--accent)}
+.cal-cell.has-sessions{background:var(--surface-2)}
 .cal-badges{position:absolute;bottom:.3rem;right:.4rem;display:flex;flex-direction:column-reverse;
   align-items:flex-end;gap:.15rem}
 .cal-badge{background:var(--accent);color:#fff;font-size:.7rem;border-radius:999px;padding:.05rem .45rem}
@@ -537,7 +559,7 @@ _CALENDAR_STYLES = """
 def _calendar_body():
     return """
 <h1>Life Calendar</h1>
-<p style="color:#6b7280">Everything by date — workouts, travel days, meals, gaming, and diary entries.</p>
+<p style="color:var(--muted)">Everything by date — workouts, travel days, meals, gaming, and diary entries.</p>
 <div class="cal-controls">
   <button class="btn secondary" id="cal-prev">&larr; Prev</button>
   <div id="cal-title"></div>
@@ -749,13 +771,13 @@ function sessionCard(s) {
 function renderPanel() {
   const box = $("day-panel");
   if (!selectedDay) {
-    box.innerHTML = '<p style="color:#6b7280">Select a day to see its sessions.</p>';
+    box.innerHTML = '<p style="color:var(--muted)">Select a day to see its sessions.</p>';
     return;
   }
   const sessions = monthData[selectedDay] || [];
   if (!sessions.length) {
     box.innerHTML = `<h2>${esc(selectedDay)}</h2>` +
-      '<p style="color:#6b7280">No sessions logged on this day.</p>';
+      '<p style="color:var(--muted)">No sessions logged on this day.</p>';
     return;
   }
   box.innerHTML = `<h2>${esc(selectedDay)}</h2>` + sessions.map(cardFor).join("");

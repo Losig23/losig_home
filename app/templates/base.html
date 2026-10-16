@@ -8,25 +8,52 @@
 {{ page_styles|safe }}
 </head>
 <body>
-<nav class="topnav">
-  <a class="brand" href="/">losig_home</a>
-  <div class="nav-links">
-    {% for item in nav %}
-    <a href="{{ item.url }}" class="{% if item.key == active %}active{% endif %}">{{ item.label }}</a>
-    {% endfor %}
-    {% if current_user.is_authenticated %}
-    <form action="/logout" method="post" class="nav-logout" onsubmit="return confirm('Are you sure you want to log out?')"><button type="submit">Logout</button></form>
-    {% else %}
-    <a href="/login" class="{% if active == 'login' %}active{% endif %}">Login</a>
-    {% endif %}
-  </div>
-</nav>
-<main class="page">
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar" aria-label="Primary">
+    <a class="brand" href="/"><span class="brand-dot"></span>losig_home</a>
+    <nav class="side-nav">
+      {% for item in nav %}
+      <a href="{{ item.url }}" class="side-link {% if item.key == active %}active{% endif %}">
+        <span class="side-icon">{{ item.icon | default('·', true) }}</span>
+        <span>{{ item.label }}</span>
+      </a>
+      {% endfor %}
+    </nav>
+    <div class="side-foot">
+      {% if current_user.is_authenticated %}
+      <form action="/logout" method="post" onsubmit="return confirm('Are you sure you want to log out?')"><button type="submit">Logout</button></form>
+      {% else %}
+      <a href="/login" class="side-link {% if active == 'login' %}active{% endif %}">
+        <span class="side-icon">🔑</span><span>Login</span>
+      </a>
+      {% endif %}
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <div class="main-col">
+    <header class="topnav mobilebar">
+      <button class="menu-btn" id="menuBtn" aria-label="Open menu">☰</button>
+      <a class="brand" href="/">losig_home</a>
+    </header>
+    <main class="page">
 {{ content|safe }}
-</main>
-<footer class="site-footer">
-  <span>losig_home · localhost build</span>
-  <a href="/api">API index</a>
-</footer>
+    </main>
+  </div>
+</div>
+<script>
+(function () {
+  var btn = document.getElementById('menuBtn');
+  var side = document.getElementById('sidebar');
+  var scrim = document.getElementById('scrim');
+  if (!btn || !side) return;
+  function setOpen(open) {
+    side.classList.toggle('open', open);
+    if (scrim) scrim.classList.toggle('show', open);
+  }
+  btn.addEventListener('click', function () { setOpen(!side.classList.contains('open')); });
+  if (scrim) scrim.addEventListener('click', function () { setOpen(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setOpen(false); });
+})();
+</script>
 </body>
 </html>

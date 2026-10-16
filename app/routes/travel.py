@@ -276,9 +276,9 @@ def render_travel_chart_svg(series, width=880, height=440):
         gy = y(val)
         grid.append(
             f'<line x1="{pad["l"]}" y1="{gy:.1f}" x2="{width - pad["r"]}" '
-            f'y2="{gy:.1f}" stroke="#e5e7eb"/>'
+            f'y2="{gy:.1f}" stroke="#2a424c"/>'
             f'<text x="{pad["l"] - 10}" y="{gy + 4:.1f}" text-anchor="end" '
-            f'font-size="12" fill="#6b7280">{val:.0f}</text>'
+            f'font-size="12" fill="#8499a3">{val:.0f}</text>'
         )
 
     # Date axis ticks (~6 evenly spaced).
@@ -290,7 +290,7 @@ def render_travel_chart_svg(series, width=880, height=440):
             f'<line x1="{tx:.1f}" y1="{height - pad["b"]}" '
             f'x2="{tx:.1f}" y2="{height - pad["b"] + 6}" stroke="#9ca3af"/>'
             f'<text x="{tx:.1f}" y="{height - pad["b"] + 22}" '
-            f'text-anchor="middle" font-size="12" fill="#6b7280">'
+            f'text-anchor="middle" font-size="12" fill="#8499a3">'
             f'{dates[i][5:].replace("-", "/")}</text>'
         )
 
@@ -298,7 +298,7 @@ def render_travel_chart_svg(series, width=880, height=440):
     for i, s in enumerate(series):
         cx = pad["l"] + (i + 0.5) * group_w
         for offset, value, color, label in (
-            (-bar_w / 2 - 2, s["pushups"], "#2563eb", "push-ups"),
+            (-bar_w / 2 - 2, s["pushups"], "#8fb8b0", "push-ups"),
             (bar_w / 2 + 2, s["situps"], "#f59e0b", "sit-ups"),
         ):
             bx = cx + offset - bar_w / 2
@@ -313,18 +313,18 @@ def render_travel_chart_svg(series, width=880, height=440):
     return (
         f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
         f'role="img" aria-label="Travel workout chart">'
-        f'<rect x="0" y="0" width="{width}" height="{height}" fill="#ffffff"/>'
+        f'<rect x="0" y="0" width="{width}" height="{height}" fill="#14242c"/>'
         f'{"".join(grid)}{"".join(ticks)}{"".join(bars)}'
         f'<rect x="{width - pad["r"] - 130}" y="{pad["t"] - 18}" width="12" '
-        f'height="12" fill="#2563eb"/>'
+        f'height="12" fill="#8fb8b0"/>'
         f'<text x="{width - pad["r"] - 112}" y="{pad["t"] - 8}" font-size="12" '
-        f'fill="#111827">push-ups</text>'
+        f'fill="#d9e2e4">push-ups</text>'
         f'<rect x="{width - pad["r"] - 58}" y="{pad["t"] - 18}" width="12" '
         f'height="12" fill="#f59e0b"/>'
         f'<text x="{width - pad["r"] - 40}" y="{pad["t"] - 8}" font-size="12" '
-        f'fill="#111827">sit-ups</text>'
+        f'fill="#d9e2e4">sit-ups</text>'
         f'<text x="{pad["l"]}" y="{height - 8}" font-size="12" '
-        f'fill="#6b7280">reps per travel day</text>'
+        f'fill="#8499a3">reps per travel day</text>'
         f"</svg>"
     )
 
@@ -376,34 +376,34 @@ def render_travel_page():
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Travel Workouts — losig_home</title>
 <style>
-body{{font-family:system-ui,sans-serif;color:#111827}}
+body{{font-family:system-ui,sans-serif;color:var(--text)}}
 .stats{{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}}
-.card{{border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1.25rem}}
-.card b{{font-size:1.4rem}}.card span{{color:#6b7280;font-size:.85rem}}
+.card{{border:1px solid var(--line);border-radius:8px;padding:.75rem 1.25rem}}
+.card b{{font-size:1.4rem}}.card span{{color:var(--muted);font-size:.85rem}}
 table{{border-collapse:collapse;margin-top:1rem}}
-td,th{{border:1px solid #e5e7eb;padding:.4rem .8rem;text-align:left}}
+td,th{{border:1px solid var(--line);padding:.4rem .8rem;text-align:left}}
 form{{margin-top:1.5rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end}}
-label{{display:flex;flex-direction:column;font-size:.85rem;color:#6b7280}}
+label{{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted)}}
 input,button,select{{padding:.5rem;font-size:1rem}}
-button{{border-radius:8px;border:1px solid #d1d5db;background:#f3f4f6;cursor:pointer}}
-button.primary{{background:#2563eb;color:#fff;border-color:#2563eb}}
+button{{border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer}}
+button.primary{{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}}
 button:active{{transform:scale(.97)}}
 .badge{{font-size:.75rem;font-weight:700;padding:.15rem .6rem;border-radius:999px;
 color:#fff;text-transform:uppercase;letter-spacing:.03em;margin-right:.4rem}}
 .badge.progressing{{background:#16a34a}}
 .badge.plateau{{background:#d97706}}
 .badge.regressing{{background:#dc2626}}
-.badge.insufficient_data{{background:#6b7280}}
+.badge.insufficient_data{{background:var(--muted)}}
 .verdicts{{margin:.6rem 0 1rem}}
-.setlog{{border:1px solid #e5e7eb;border-radius:10px;padding:1rem;margin-top:1.5rem}}
+.setlog{{border:1px solid var(--line);border-radius:10px;padding:1rem;margin-top:1.5rem}}
 .logrow{{display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap;align-items:end}}
 .timer{{display:flex;gap:.6rem;align-items:center;margin-top:.6rem}}
 .tdisp{{font-variant-numeric:tabular-nums;font-size:1.4rem;font-weight:700;
 min-width:4.2rem}}
 .logged{{font-size:.95rem;margin:.3rem 0}}
-.meta{{color:#6b7280;font-size:.9rem}}
+.meta{{color:var(--muted);font-size:.9rem}}
 .seg label{{flex-direction:row;align-items:center;gap:.3rem;font-size:1rem;
-color:#111827}}
+color:var(--text)}}
 .seg{{display:flex;gap:1rem;margin-top:.6rem}}
 </style></head><body>
 <h1>Travel Workouts</h1>
