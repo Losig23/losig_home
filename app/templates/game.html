@@ -78,9 +78,7 @@
   body.touch #prompt { cursor: pointer; padding: 12px 22px; -webkit-tap-highlight-color: transparent; }
   body.touch #prompt { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   @media (max-width: 600px) { #title .sub, #help { display: none; }
-    #authpill { top: auto; right: auto; bottom: 14px; left: 16px; }
-    /* phones have no other way to learn the controls, so keep the hint, tucked under the title */
-    body.touch #help { display: block; top: 64px; bottom: auto; } }
+    #authpill { top: auto; right: auto; bottom: 14px; left: 16px; } }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -89,7 +87,7 @@
 <body>
 <div id="scene"></div>
 
-<div class="hud" id="title"><b>losig_home — the apartment</b><div class="sub">anime edition · walk around, press E on things</div></div>
+<div class="hud" id="title"><b>losig_home</b><div class="sub">anime edition · walk around, press E on things</div></div>
 <div class="hud" id="authpill">…</div>
 <div class="hud" id="help"><span class="key-only">WASD / arrows — move · <b>E</b> — interact · <b>Esc</b> — close</span><span class="touch-only">drag anywhere — move · tap the bubble — interact</span></div>
 <div class="hud" id="exit"><a href="/">← back to site</a></div>
