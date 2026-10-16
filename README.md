@@ -1,47 +1,69 @@
 # losig_home
 
-The backend for my personal life hub — the site that will eventually live at
-**anirudhyarram.com**. One API + database behind everything I track:
+My personal life hub — live at **https://anirudhyarram.com**. A public
+portfolio homepage on the front, and a login-gated tracker behind it:
+workouts, food, bodyweight, gaming, diary, and music.
 
-- **Media** — games I play, videos I watch, music I listen to, movies I watch,
-  sports teams I follow (via their APIs: Steam, PSN, YouTube, Last.fm, TMDB/Trakt, ESPN)
-- **Food** — photo log of what I cook with calorie/macro estimates
+- **Site:** https://anirudhyarram.com (also https://losig-home.onrender.com)
+- **Apartment game:** https://anirudhyarram.com/game — a walkable Three.js
+  apartment where the TV, speaker, laptop, and other objects read live data
+  from this backend
+
+## What it is
+
+Two faces, one Flask app:
+
+- **Public** — a black-and-emerald bento-grid portfolio: hero, experience,
+  projects, a 7-day life-log summary, and a now-playing tile (Last.fm).
+  No login needed, no job-search signals, nothing private leaks.
+- **Private** (single-user login, no registration) — the full tracker:
+  command-center dashboard, live workout logging with rest timer,
+  per-exercise progress charts, food log with photo upload, bodyweight
+  trend, travel mode, gaming log, diary, unified life calendar, and
+  listening stats.
+
+## Features
+
 - **Fitness** — my 5-day lifting routine with per-set check-offs, daily
-  completion %, a travel mode for push-up/sit-up days, daily bodyweight
-  tracking with a trend chart, live set logging with a rest timer, and a
-  progress analyzer (progressing / plateau / regressing verdicts per exercise)
-- **Apartment game (future)** — a playable walk-around of my apartment on the
-  personal site; the TV, speaker, and other objects will read live data from
-  this backend
+  completion %, live set logging with a count-up rest timer, and a
+  progress analyzer (progressing / plateau / regressing verdicts per
+  exercise from the est-1RM slope, plus rest insights)
+- **Progressive overload** — per-exercise est-1RM (Epley) series, volume,
+  PR detection with `is_pr` flags, SVG charts with gold ★ on PR sessions,
+  sparklines on the index
+- **Food** — photo log with calorie/macro estimates via CalorieNinjas
+  (free tier), manual fallback; daily macro totals
+- **Bodyweight** — daily weigh-in upsert, 7-day avg, 30-day delta, trend,
+  server-rendered SVG chart
+- **Travel** — push-up/sit-up per-set logging with rest timer, grouped bar
+  chart, per-movement analyzer verdicts
+- **Gaming** — manual session log with a normalized per-title feed
+  (`/api/gaming/recent`) for the apartment game
+- **Diary** — one entry per day, strictly private (tests assert its text
+  never appears in public payloads)
+- **Life calendar** — workouts, travel, gaming, meal summaries, and diary
+  markers merged into one timeline
+- **Music** — Last.fm weekly charts (24h cache) + recent scrobbles (1h
+  cache); cache-aside with stale-on-error, zero scrobbles stored
+- **Apartment game** — public Three.js walkable apartment (anime/cel-shaded
+  restyle), 7 interactables wired to real APIs
 
-## Status: basic localhost frontend
+## Stack & deploy
 
-The API is fully working, seeded with my exact 5-day routine (all weights in
-**lb**), and there is now a basic verification frontend: a dashboard at `/`
-plus pages for every feature, all Flask-served with vanilla HTML/CSS/JS —
-no build step, no npm, no frameworks.
+Flask + Flask-SQLAlchemy + Flask-Login, Neon Postgres (via Alembic
+migrations), Cloudflare R2 (meal photos), Last.fm API, server-rendered
+HTML, vanilla JS, Three.js. No build step, no npm, no frameworks.
 
-| Page | What it shows |
-|---|---|
-| `/` | Dashboard: latest bodyweight, today's food totals, this week's sessions, travel totals, analyzer verdict counts |
-| `/log` | Start a live workout session (day 1–5 or travel) |
-| `/sessions/<id>/log` | Phone-friendly live logging: per-set weight/reps, count-up rest timer, PR stars, exercise illustrations |
-| `/progress` | Per-exercise est-1RM chart index with sparklines |
-| `/exercises/<id>/progress` | Est-1RM curve with PR stars for one exercise |
-| `/analysis` | Verdict cards (progressing / plateau / regressing) + rest insights |
-| `/bodyweight` | Weight trend chart, 7-day avg, 30-day delta, weigh-in form |
-| `/travel` | Push-up/sit-up chart, per-set logging, verdict badges |
-| `/food` | Meal photo upload + description, daily totals, per-day browser |
-| `/api` | JSON API index (previously served at `/`) |
+Deploys on Render's free tier (`render.yaml`): migrations + seed run
+idempotently in the start command (free tier has no pre-deploy shell).
+PR previews inherit production env vars — visual review only, never write
+test data through a preview URL.
 
-Shared layout lives in `app/templates/base.html` (top nav) with styles in
-`app/static/css/app.css`. The older inline-HTML pages are wrapped in the
-shared layout by `app/routes/ui.py::wrap_page` rather than rewritten. New
-pages are built as Python HTML strings rendered through `base.html` — same
-pattern as the rest of the codebase.
+## Status
 
-**Note for the future:** the `/game` URL namespace is reserved for the
-apartment-game frontend that will eventually replace these pages.
+In active development. The public portfolio and `/game` are stable; the
+logged-in pages are going through a visual redesign (sidebar shell, storm
+dark theme) and the public homepage is getting a phone-first mobile pass.
 
 ## Setup
 
@@ -53,20 +75,31 @@ pip install -r requirements.txt
 # create the database and seed the 5-day routine
 flask --app wsgi seed
 
-# run the API
+# create the login user
+flask --app wsgi create-user
+
+# run the app
 flask --app wsgi run        # dev server on http://127.0.0.1:5000
 
 # run the tests
 pytest
 ```
 
-`DATABASE_URL` env var overrides the SQLite default (e.g. Postgres on Render).
+`DATABASE_URL` env var overrides the SQLite default (e.g. Postgres on
+Render). `SECRET_KEY` is required outside tests. Optional integrations:
+
+```bash
+API_NINJAS_KEY=...     # CalorieNinjas food estimates (manual fallback without)
+LASTFM_API_KEY=...     # music section (omitted when unset)
+LASTFM_USERNAME=...    # e.g. Losig
+```
 
 ## API
 
 | Method | Endpoint | What it does |
 |---|---|---|
 | GET | `/api/health` | health check |
+| GET | `/api/public/week` | public 7-day summary (no user ids, no photo URLs) |
 | GET | `/api/routine` | full 5-day routine with exercises + planned sets |
 | GET | `/api/routine/<day>` | one day (1–5) |
 | POST | `/api/sessions` | start a session: `{"day_number": 1}` or `{"travel_mode": true, "date": "2026-09-23"}` |
@@ -100,6 +133,11 @@ pytest
 | GET | `/analysis` | verdict cards grouped by day with sparklines and rest insights |
 | GET | `/log` | live session page: pick day 1–5 or travel, then log sets with a per-exercise rest timer |
 | GET | `/sessions/<id>/log` | the live logging UI for a session |
+| GET | `/api/gaming` | gaming sessions |
+| POST | `/api/gaming` | log a gaming session (manual) |
+| GET | `/api/gaming/recent` | normalized per-title feed: last played, total minutes, session count |
+| GET | `/api/diary` | diary entries (login only) |
+| POST | `/api/diary` | upsert today's entry (login only) |
 
 ### Progressive overload
 
@@ -225,8 +263,10 @@ min/max annotations, and a date axis, plus stat cards (latest, 7-day avg,
 
 ### Food log setup
 
-Meal photos are stored under `instance/uploads/meals/` (gitignored — runtime
-data, not committed; on Render attach a persistent disk for this path).
+Meal photos are stored under `instance/uploads/meals/` locally (gitignored —
+runtime data, not committed). In production they go to Cloudflare R2
+(`R2_*` env vars; see `.env.example`).
+
 Photos are capped at 10MB and must be png/jpg/webp/gif.
 
 Calorie/macro estimates come from the [CalorieNinjas](https://api-ninjas.com/api/nutrition)
@@ -242,13 +282,28 @@ Without the key, the API call is skipped and any manually provided macros
 are used instead (`source` is `"manual"` vs `"calorieninjas"` on the meal
 record).
 
+### Music setup
+
+Listening stats come from the [Last.fm API](https://www.last.fm/api)
+(no bulk import — cached reads only: weekly charts 24h, recent scrobbles
+1h, stale served on API errors):
+
+```bash
+LASTFM_API_KEY=your_api_key
+LASTFM_USERNAME=your_username
+```
+
+When unset, the music tiles are omitted. If you use Spotify, enable
+scrobbling to Last.fm or the charts stay empty — the site never sees plays
+that don't reach Last.fm.
+
 ## Data model
 
+- `user` — single login user (Werkzeug hash, no registration route)
 - `routine_day` — day_number 1–5, name
 - `exercise` — name, position, intensity (H/M/L/VL/VH), `raw_label` keeps the
   original abbreviation (e.g. `BSs`), `illustration_key` maps to the
   line-drawn SVG at `/static/exercises/<illustration_key>.svg`
-  (see "Exercise illustrations" below)
 - `planned_set` — weight_lb, target_reps, note per set
 - `workout_session` — date, day, travel_mode flag, completed_pct
 - `set_log` — per-set check-offs with optional actual reps/weight; `is_pr`
@@ -259,8 +314,11 @@ record).
 - `travel_set` — travel_session_id, movement (`pushup`/`situp`), set_number
   (1-based within movement+session), reps, rest_seconds (rest before the set)
 - `body_weight_log` — date (unique), weight_lb, note
-- `meal_log` — photo_path (under `instance/uploads/meals/`), description,
+- `meal_log` — photo_path (R2 in prod), description,
   calories/protein_g/carbs_g/fat_g, logged_at, source (calorieninjas/manual)
+- `game_session` — manual gaming log: title, minutes, date
+- `diary_entry` — one per day, strictly private
+- `listening_cache` — Last.fm cache-aside rows (key, payload, fetched_at)
 
 ## Roadmap
 
@@ -282,14 +340,22 @@ record).
   progressing / plateau / regressing from the est-1RM slope and surface rest
   insights (e.g. PR sets averaging longer rests)
 - [x] **Exercise illustrations** — line-drawn SVG per exercise
-- [x] **Basic localhost frontend** — dashboard at `/` with live summary cards,
-  `/food` page (photo upload + daily totals), shared nav + stylesheet across
-  all pages; vanilla HTML/CSS/JS, no build step. `/game` reserved for the
-  future apartment-game frontend.
   (`/static/exercises/<illustration_key>.svg`), thumbnails with tap-to-expand
   on the live `/log` page, illustration on each `/exercises/<id>/progress`
   chart page, `illustration_url` in exercise API output
-- [ ] **Media aggregator** — scheduled pulls from Steam/PSN/YouTube/Last.fm/
-  TMDB/ESPN into a unified "now" feed
-- [ ] **Auth** — login before any of this goes public; food and workout data stay private
-- [ ] **Apartment game frontend** — Three.js walk-around wired to this backend
+- [x] **Auth** — single-user login, default-deny; public pages show a 7-day
+  summary only, diary never leaks
+- [x] **Production deploy** — Render + Neon Postgres + Cloudflare R2, custom
+  domain anirudhyarram.com
+- [x] **Portfolio homepage** — public black-and-emerald bento grid
+- [x] **Apartment game** — public Three.js walkable apartment, 7
+  interactables wired to real backend data
+- [x] **Music** — Last.fm weekly charts + recent scrobbles, cached reads
+- [x] **Gaming log + diary + life calendar** — manual game sessions,
+  private diary, unified timeline
+- [ ] **Media aggregator** — remaining sources (Steam/YouTube/TMDB/ESPN)
+  into a unified "now" feed; PSN declined (no official API, manual-first)
+- [ ] **Logged-in redesign polish** — sidebar shell + storm dark theme
+  (in progress)
+- [ ] **Mobile-first public homepage** — priority-ordered panels, hamburger
+  nav, accordion experience (in progress)
