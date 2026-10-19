@@ -16,6 +16,18 @@ import { pencil } from './pencil.js';
 
 const VERTEX_COLORED = pencil(0xffffff, { vertexColors: true });
 
+// Flat ground layers (grass, fields, roads, lots, paint) sit a fraction of a
+// foot apart, which the depth buffer can't tell apart a few hundred feet out
+// from a driver's-eye camera. Each layer gets its own polygon offset instead,
+// so the higher layer always wins: 0 = paint ... 4 = the grass itself.
+const LAYERS = [];
+export function groundLayer(n) {
+  if (!LAYERS[n]) {
+    LAYERS[n] = pencil(0xffffff, { vertexColors: true, polygonOffset: n > 0, polygonOffsetFactor: n * 2, polygonOffsetUnits: n * 2 });
+  }
+  return LAYERS[n];
+}
+
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const _e = new THREE.Euler();
@@ -66,6 +78,13 @@ export function createBatch() {
       g.rotateX(-Math.PI / 2);
       geo(g, color, x, y, z, ry);
     },
+    /** Flat polygon on the ground ([[x, z], ...], any shape), at height y. */
+    poly(points, y, color) {
+      const shape = new THREE.Shape(points.map(([x, z]) => new THREE.Vector2(x, -z)));
+      const g = new THREE.ShapeGeometry(shape);
+      g.rotateX(-Math.PI / 2);
+      geo(g, color, 0, y, 0);
+    },
     /** Flat strip on the ground along a polyline, w wide, at height y. */
     ribbon(points, w, y, color, joints = true) {
       for (let i = 0; i < points.length - 1; i++) {
@@ -82,41 +101,105 @@ export function createBatch() {
         }
       }
     },
+    /** Add a ready-made geometry with a full matrix (mergeMeshes); color null keeps its own color attribute. */
+    raw(g, color, matrix) { parts.push({ g, color, m: matrix }); },
     get count() { return parts.length; },
-    /** Merge everything added so far into one mesh (null if empty). */
-    build({ castShadow = true, receiveShadow = true } = {}) {
+    /**
+     * Merge everything added so far into one mesh (null if empty).
+     * layer: a groundLayer() index for flat ground. tile: split into square
+     * tiles this many feet across (a Group of meshes), so the parts of a big
+     * map that are off screen, or outside the sun's shadow box, get culled.
+     */
+    build({ castShadow = true, receiveShadow = true, layer = null, tile = 0 } = {}) {
       if (!parts.length) return null;
-      let n = 0;
-      const flat = parts.map((p) => {
-        const g = p.g.index ? p.g.toNonIndexed() : p.g;
-        if (g !== p.g) p.g.dispose();
-        g.applyMatrix4(p.m);
-        n += g.attributes.position.count;
-        return { g, color: p.color };
-      });
-      const pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3), col = new Float32Array(n * 3);
-      let o = 0;
-      for (const { g, color } of flat) {
-        const cnt = g.attributes.position.count;
-        pos.set(g.attributes.position.array, o * 3);
-        nrm.set(g.attributes.normal.array, o * 3);
-        _c.set(color); // hex -> linear working space, same as material.color
-        for (let i = 0; i < cnt; i++) _c.toArray(col, (o + i) * 3);
-        o += cnt;
-        g.dispose();
+      const opts = { castShadow, receiveShadow, layer };
+      if (!tile) {
+        const mesh = merge(parts, opts);
+        parts.length = 0;
+        return mesh;
+      }
+      const tiles = new Map();
+      for (const p of parts) {
+        const k = `${Math.floor(p.m.elements[12] / tile)},${Math.floor(p.m.elements[14] / tile)}`;
+        if (!tiles.has(k)) tiles.set(k, []);
+        tiles.get(k).push(p);
       }
       parts.length = 0;
-      const merged = new THREE.BufferGeometry();
-      merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      merged.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
-      merged.setAttribute('color', new THREE.BufferAttribute(col, 3));
-      merged.computeBoundingSphere();
-      const mesh = new THREE.Mesh(merged, VERTEX_COLORED);
-      mesh.castShadow = castShadow;
-      mesh.receiveShadow = receiveShadow;
-      return mesh;
+      const group = new THREE.Group();
+      for (const list of tiles.values()) group.add(merge(list, opts));
+      return group;
     },
   };
+}
+
+function merge(parts, { castShadow, receiveShadow, layer }) {
+  let n = 0;
+  const flat = parts.map((p) => {
+    const g = p.g.index ? p.g.toNonIndexed() : p.g;
+    if (g !== p.g) p.g.dispose();
+    g.applyMatrix4(p.m);
+    n += g.attributes.position.count;
+    return { g, color: p.color };
+  });
+  const pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  let o = 0;
+  for (const { g, color } of flat) {
+    const cnt = g.attributes.position.count;
+    pos.set(g.attributes.position.array, o * 3);
+    nrm.set(g.attributes.normal.array, o * 3);
+    if (color === null) {
+      col.set(g.attributes.color.array, o * 3); // already linear
+    } else {
+      _c.set(color); // hex -> linear working space, same as material.color (a Color is copied as is)
+      for (let i = 0; i < cnt; i++) _c.toArray(col, (o + i) * 3);
+    }
+    o += cnt;
+    g.dispose();
+  }
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  merged.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  merged.computeBoundingSphere();
+  const mesh = new THREE.Mesh(merged, layer === null ? VERTEX_COLORED : groundLayer(layer));
+  mesh.castShadow = castShadow;
+  mesh.receiveShadow = receiveShadow;
+  return mesh;
+}
+
+/**
+ * Collapse a built hierarchy of toon meshes into one vertex-colored mesh per
+ * moving part. `bones` are the groups that animate (the root counts as one);
+ * every mesh is baked into its nearest bone, keeping its look exactly.
+ * Textured meshes (lettering) can't merge, so they're re-parented as they are.
+ */
+export function mergeMeshes(root, bones) {
+  const set = new Set([root, ...bones]);
+  root.updateMatrixWorld(true);
+  const batches = new Map();
+  const meshes = [];
+  root.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  const inv = new THREE.Matrix4();
+  for (const m of meshes) {
+    let bone = m.parent;
+    while (!set.has(bone)) bone = bone.parent;
+    if (m.material.map) {
+      bone.attach(m);
+      continue;
+    }
+    if (!batches.has(bone)) batches.set(bone, createBatch());
+    inv.copy(bone.matrixWorld).invert();
+    const g = m.geometry.clone();
+    const own = m.material.vertexColors && g.attributes.color;
+    batches.get(bone).raw(g, own ? null : m.material.color, inv.clone().multiply(m.matrixWorld));
+  }
+  for (const m of meshes) {
+    if (m.material.map) continue;
+    // children that are bones or textured meshes were already moved out
+    m.parent.remove(m);
+    m.geometry.dispose();
+  }
+  for (const [bone, b] of batches) bone.add(b.build({ receiveShadow: false }));
 }
 
 /** Box geometry whose top face is pulled in: windshield rakes, hatch slopes, tumblehome. */

@@ -10,6 +10,7 @@ speeds and ground height (outside: a step up onto sidewalks). Past a brisk
 walk the cycle blends into a run: longer stride, bent arms, a forward lean.
 */import * as THREE from 'three';
 import { pencil } from './pencil.js';
+import { mergeMeshes } from './batch.js';
 
 const RADIUS = 0.55;
 const WALK = 6.5; // ft/s, the apartment pace
@@ -180,23 +181,32 @@ export function createPlayer(scene) {
   const armL = mkArm(-1), armR = mkArm(1);
   const legL = mkLeg(-1), legR = mkLeg(1);
 
+  // ~130 primitives -> one mesh per moving part (plus the two jersey prints),
+  // so Ani costs a dozen draw calls instead of a hundred-odd per pass
+  mergeMeshes(g, [rig, head, armL.shoulder, armL.elbow, armR.shoulder, armR.elbow,
+    legL.hip, legL.knee, legR.hip, legR.knee]);
+
   scene.add(g);
 
   const state = { x: 0, z: 0, y: 0, dirX: 0, dirZ: -1, walkT: 0, idleT: 0, moving: false, run: 0 };
 
-  function hits(x, z, colliders, b) {
-    for (const c of colliders) {
+  function hits(x, z, area) {
+    const b = area.bounds;
+    // stay inside the area's walkable box (the apartment shell, the lot's surroundings)
+    if (x < b.x1 || x > b.x2 || z < b.z1 || z > b.z2) return true;
+    // outdoors: a spatial grid (collide.js) that also knows where the parked car is
+    if (area.solids) return area.solids.hit(x, z, RADIUS);
+    for (const c of area.colliders) {
       const nx = Math.max(c.x1, Math.min(x, c.x2));
       const nz = Math.max(c.z1, Math.min(z, c.z2));
       if ((x - nx) ** 2 + (z - nz) ** 2 < RADIUS * RADIUS) return true;
     }
-    // stay inside the area's walkable box (the apartment shell, the lot's surroundings)
-    return x < b.x1 || x > b.x2 || z < b.z1 || z > b.z2;
+    return false;
   }
 
   // move: {x, z} in world axes; length 1 is full speed (a touch stick can
-  // push less than that to walk slower). area: { colliders, bounds, speed,
-  // runSpeed, heightAt }; running switches to the area's run speed.
+  // push less than that to walk slower). area: { colliders or solids, bounds,
+  // speed, runSpeed, heightAt }; running switches to the area's run speed.
   function update(dt, move, area, running = false) {
     const walk = area.speed || WALK;
     const speed = running ? area.runSpeed || walk * 1.8 : walk;
@@ -209,11 +219,12 @@ export function createPlayer(scene) {
       state.dirX = dx; state.dirZ = dz;
       pace = Math.min(len, 1);
       const step = speed * pace * dt;
-      if (!hits(state.x + dx * step, state.z, area.colliders, area.bounds)) state.x += dx * step;
-      if (!hits(state.x, state.z + dz * step, area.colliders, area.bounds)) state.z += dz * step;
+      if (!hits(state.x + dx * step, state.z, area)) state.x += dx * step;
+      if (!hits(state.x, state.z + dz * step, area)) state.z += dz * step;
       // cadence follows ground speed; past a walk the stride lengthens instead
+      // (and keeps lengthening at a full outdoor sprint rather than blurring the legs)
       const v = speed * pace / WALK;
-      state.walkT += dt * 11 * (v <= 1 ? v : 1 + (v - 1) * 0.45);
+      state.walkT += dt * 11 * (v <= 1 ? v : v <= 3 ? 1 + (v - 1) * 0.45 : 1.9 + (v - 3) * 0.2);
     }
     // ease the run blend so the gait doesn't snap when a thumb wavers
     const runTarget = state.moving ? Math.min(1, Math.max(0, (speed * pace - 9.5) / 5)) : 0;
@@ -240,7 +251,9 @@ export function createPlayer(scene) {
     armR.shoulder.rotation.x = -s * armA * w;
     armL.elbow.rotation.x = -0.15 - r * 1.1 - Math.max(0, -s) * 0.4 * w;
     armR.elbow.rotation.x = -0.15 - r * 1.1 - Math.max(0, s) * 0.4 * w;
-    rig.rotation.x = r * 0.14;
+    // past a run, a sprint leans in harder
+    const sprint = state.moving ? Math.min(1, Math.max(0, (speed * pace - 20) / 10)) : 0;
+    rig.rotation.x = r * 0.14 + sprint * 0.1;
     rig.position.y = state.moving
       ? Math.abs(Math.cos(state.walkT)) * (0.07 + r * 0.12) - 0.03
       : Math.sin(state.idleT * 2.2) * 0.015;
