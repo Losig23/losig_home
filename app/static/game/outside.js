@@ -14,11 +14,13 @@ does, its walls sink to the apartment's 4 ft cutaway height, the roof
 comes off, and a hollow version with cream partition walls and carpet
 takes its place, the same trick that makes the apartment readable.
 */import * as THREE from 'three';
-import { pencil, addLights, followSun, makeMarker, LABEL_FONT } from './pencil.js';
-import { createBatch, groundLayer } from './batch.js';
-import { rng, prism, distToLine, inRect, drawTree, drawUtilityPole, TRUNK } from './scenery.js';
+import { pencil, addLights, followSun, makeMarker } from './pencil.js';
+import { createBatch, groundViews } from './batch.js';
+import { rng, prism, distToLine, inRect, drawTree, TRUNK } from './scenery.js';
 import { createRav4, drawParkedCar } from './car.js';
-import { createSolids } from './collide.js';
+import { createSolids, createWorld } from './collide.js';
+import { createBreakables } from './breakables.js';
+import { createTown } from './chunks.js';
 import { createVehicle } from './vehicle.js';
 import { buildTown } from './town.js';
 import * as LOT from './home_lot.js';
@@ -42,7 +44,6 @@ const RAIL = 0x5e5650;           // apartment balcony rail
 const WALL_C = 0xfbf5e6;         // apartment interior walls (for the cutaway)
 const CARPET = 0xe6c99a;         // apartment floor
 const HALL = 0xcfd4d6;           // apartment tile
-const POLE = 0x5e5a55;
 const LENS = 0xfff6d8;
 // no silver: the only silver car in the lot is yours
 const CAR_COLORS = [0xf2f0eb, 0x232326, 0x8c2c2d, 0x2b4e91, 0xcdbb98, 0x4d5156, 0x355e44, 0x5a3622];
@@ -52,6 +53,7 @@ const CUT_H = 4;          // matches the apartment's cutaway walls
 const WALK_H = 0.25;      // sidewalks and walks are a step up from the grass
 const WALK_SPEED = 9;     // ft/s on foot outside (a brisk walk; the apartment is 6.5)
 const RUN_SPEED = 30;     // with run on (R / the Run button): a flat-out sprint to the car
+const FOG_BANK = 400;     // ft past the edge of the town where the fog closes in
 
 
 // ---- ground: streets, curbs, sidewalks, lot ----
@@ -302,51 +304,6 @@ function drawNeighbor(b, n) {
 
 // ---- trees and street furniture ----
 
-function drawLotLight(b, x, z) {
-  // arm reaches over the pavement: west from the spur's east edge, else toward the aisle
-  const tx = x > 148 ? x - 10 : x, tz = x > 148 ? z : 11.5;
-  const ry = Math.atan2(tx - x, tz - z), ax = Math.sin(ry), az = Math.cos(ry);
-  b.cyl(x, 0, z, 0.7, 1.4, 0xcfcac0, 10);
-  b.cyl(x, 1.4, z, 0.22, 18, POLE, 8);
-  b.box(x + ax * 1.5, 19.1, z + az * 1.5, 0.3, 0.3, 3, POLE, ry);
-  b.box(x + ax * 3.2, 18.7, z + az * 3.2, 1.0, 0.45, 1.8, 0x3a3d40, ry);
-  b.box(x + ax * 3.2, 18.62, z + az * 3.2, 0.8, 0.08, 1.5, LENS, ry);
-}
-
-function stopSign(x, z, face) {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 128;
-  const c = cv.getContext('2d');
-  const oct = (r) => {
-    c.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const a = Math.PI / 8 + (i * Math.PI) / 4;
-      c.lineTo(64 + Math.cos(a) * r, 64 - Math.sin(a) * r);
-    }
-    c.closePath();
-  };
-  c.fillStyle = '#f4f1ea'; oct(64); c.fill();
-  c.fillStyle = '#c8102e'; oct(57); c.fill();
-  c.fillStyle = '#f4f1ea';
-  c.font = `800 34px ${LABEL_FONT}`;
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
-  c.fillText('STOP', 64, 67);
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const g = new THREE.Group();
-  const front = new THREE.Mesh(new THREE.CircleGeometry(1.25, 8, Math.PI / 8), pencil(0xffffff, { map: tex }));
-  front.position.z = 0.06;
-  const back = new THREE.Mesh(new THREE.CircleGeometry(1.25, 8, Math.PI / 8), pencil(0x9aa0a6));
-  back.rotation.y = Math.PI;
-  g.add(front, back);
-  g.position.set(x, 7.2, z);
-  g.rotation.y = face;
-  for (const m of [front, back]) m.castShadow = true;
-  return g;
-}
-
-
 // ---- the area ----
 
 export function buildOutside() {
@@ -356,16 +313,13 @@ export function buildOutside() {
   const touch = matchMedia('(pointer: coarse)').matches;
   const sun = addLights(scene, { x: LOT.ENTRY.x, z: LOT.ENTRY.z, extent: 95, far: 320, reach: 4, mapSize: touch ? 1024 : 2048 });
 
-  // the grass runs on into the fog past the map; it's the deepest ground layer,
-  // so fields, drives, streets, lots and paint (each a layer up) never z-fight
+  // flat ground is one mesh in depth layers (batch.js GROUND): paint over lots
+  // over streets over drives over fields over water over grass. The grass
+  // runs on into the fog past the map.
   const R = NEAR.REGION;
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(R.x2 - R.x1 + 4000, R.z2 - R.z1 + 4000), pencil(GRASS, {
-    polygonOffset: true, polygonOffsetFactor: 10, polygonOffsetUnits: 10 }));
-  grass.rotation.x = -Math.PI / 2;
-  grass.position.set((R.x1 + R.x2) / 2, 0, (R.z1 + R.z2) / 2);
-  grass.receiveShadow = true;
-  scene.add(grass);
-  const ground = { landcover: createBatch(), drives: createBatch(), streets: createBatch(), lots: createBatch(), paint: createBatch() };
+  const groundBatch = createBatch();
+  const ground = groundViews(groundBatch);
+  ground.grass.flat((R.x1 + R.x2) / 2, 0, (R.z1 + R.z2) / 2, R.x2 - R.x1 + 4000, R.z2 - R.z1 + 4000, GRASS);
 
   const colliders = [];
   const cuttables = [];
@@ -374,7 +328,9 @@ export function buildOutside() {
 
   drawWalks(b);
   drawLot(b, ground);
-  const town = buildTown({ scene, b, ground, colliders, cuttables, cutH: CUT_H });
+  const breakables = createBreakables(scene);
+  const homeProps = breakables.group();
+  const town = buildTown({ scene, b, ground, props: homeProps, colliders, cuttables, cutH: CUT_H });
 
   for (const bd of LOT.BUILDINGS) {
     const built = buildBuilding(bd);
@@ -412,26 +368,20 @@ export function buildOutside() {
     }
   }
 
-  for (const [x, z] of LOT.LOT_LIGHTS) {
-    drawLotLight(b, x, z);
-    colliders.push({ x1: x - 0.7, z1: z - 0.7, x2: x + 0.7, z2: z + 0.7 });
+  // street furniture is breakable (breakables.js): lot lights reach over the
+  // pavement (west from the spur's east edge, else toward the aisle), the
+  // utility poles' lights reach north over the cross street
+  const addProp = (id, kind, x, z, ry) => {
+    const box = homeProps.add(id, kind, x, z, ry);
+    if (box) colliders.push(box);
+  };
+  for (const [k, [x, z]] of LOT.LOT_LIGHTS.entries()) {
+    const tx = x > 148 ? x - 10 : x, tz = x > 148 ? z : 11.5;
+    addProp(`lot:light${k}`, 'lamp', x, z, Math.atan2(tx - x, tz - z) + Math.PI);
   }
-  for (const [x, z] of LOT.UTILITY_POLES) {
-    drawUtilityPole(b, x, z);
-    colliders.push({ x1: x - 0.6, z1: z - 0.6, x2: x + 0.6, z2: z + 0.6 });
-  }
-  for (const s of LOT.STOP_SIGNS) {
-    b.cyl(s.x, 0, s.z, 0.1, 7.3, 0xc7cacc, 6);
-    scene.add(stopSign(s.x, s.z, s.face));
-    colliders.push({ x1: s.x - 0.35, z1: s.z - 0.35, x2: s.x + 0.35, z2: s.z + 0.35 });
-  }
-  {
-    const { x, z } = LOT.BUS_STOP;
-    b.cyl(x, 0, z, 0.1, 8, 0xc7cacc, 6);
-    b.box(x, 6.4, z, 1.5, 1.1, 0.1, 0x2b4e91);
-    b.box(x, 6.75, z + 0.06, 1.2, 0.18, 0.02, PAINT);
-    colliders.push({ x1: x - 0.35, z1: z - 0.35, x2: x + 0.35, z2: z + 0.35 });
-  }
+  for (const [k, [x, z]] of LOT.UTILITY_POLES.entries()) addProp(`lot:pole${k}`, 'pole', x, z, 0);
+  for (const [k, sg] of LOT.STOP_SIGNS.entries()) addProp(`lot:stop${k}`, 'stop', sg.x, sg.z, sg.face);
+  addProp('lot:bus', 'bus', LOT.BUS_STOP.x, LOT.BUS_STOP.z, 0);
 
   // parked cars, merged; the RAV4 is its own object
   let ci = 0;
@@ -457,12 +407,10 @@ export function buildOutside() {
   const car = { rav4, vehicle, parked: true };
 
   // static scenery in 400 ft tiles so off-screen tiles (and ones outside the
-  // sun's shadow box) are culled; flat ground in its polygon-offset layers
+  // sun's shadow box) are culled; flat ground as one layered mesh
   scene.add(b.build({ tile: 400 }));
-  [ground.paint, ground.lots, ground.streets, ground.drives, ground.landcover].forEach((gb, layer) => {
-    const m = gb.build({ castShadow: false, layer });
-    if (m) scene.add(m);
-  });
+  scene.add(groundBatch.build({ ground: true }));
+  homeProps.build();
 
   // a speech-bubble sticker over the RAV4 so it's easy to pick out of the lot;
   // drawn in the un-inked overlay like the apartment's room labels, through walls
@@ -474,16 +422,19 @@ export function buildOutside() {
 
   // standing height: sidewalks and walks are a step up
   const sidewalks = [...LOT.SIDEWALKS, ...NEAR.SIDEWALKS];
+  const inRegion = (x, z) => x >= R.x1 && x <= R.x2 && z >= R.z1 && z <= R.z2;
   function heightAt(x, z) {
+    if (!inRegion(x, z)) return townChunks.onWalk(x, z) ? WALK_H : 0;
     for (const r of LOT.WALKS) if (inRect(x, z, r)) return WALK_H;
     for (const s of sidewalks) if (distToLine(x, z, s.pts) <= s.w / 2) return WALK_H;
     return 0;
   }
 
-  // past the edge of the map a fog bank closes in: 0 inside, 1 at its far side
+  // past the edge of the town a fog bank closes in: 0 inside, 1 at its far side
   function bankAt(x, z) {
-    const out = Math.max(R.x1 - x, x - R.x2, R.z1 - z, z - R.z2);
-    const k = Math.min(1, Math.max(0, (out + 80) / (NEAR.MARGIN + 80)));
+    const B = world.bounds;
+    const out = Math.max(B.x1 - x, x - B.x2, B.z1 - z, z - B.z2);
+    const k = Math.min(1, Math.max(0, (out + 80) / (B.margin + 80)));
     return k * k * (3 - 2 * k);
   }
 
@@ -506,14 +457,32 @@ export function buildOutside() {
     return true;
   }
 
-  const solids = createSolids(colliders);
-  const world = { solids, surface: town.paved, bounds: { ...R, margin: NEAR.MARGIN } };
+  // collision: the hand-built area's grid plus each streamed chunk's own
+  const solids = createWorld(createSolids(colliders));
+  const world = {
+    solids,
+    // pavement: the hand-built raster here, the chunks' everywhere else (unloaded counts as road)
+    surface: (x, z) => (inRegion(x, z) ? town.paved(x, z) : townChunks.paved(x, z) ?? true),
+    // until the town index arrives, the hand-built area is the whole map
+    bounds: { ...R, margin: FOG_BANK },
+    onBreak: (box, vx, vz) => breakables.knock(box, vx, vz),
+  };
+  const townChunks = createTown({ scene, world: solids, breakables });
   const door = { id: 'rav4', label: 'Get in', x: 0, z: 0, r: 3.4, drive: true };
   const circles = [];
 
   function update(dt, camera, player, driving = false) {
     const { x, z, y } = player.state;
     const s = vehicle.s;
+    // stream the town around a point that runs ahead of the car
+    if (townChunks.bounds && world.bounds.x1 === R.x1) {
+      const [x1, z1, x2, z2] = townChunks.bounds;
+      world.bounds = { x1, z1, x2, z2, margin: FOG_BANK };
+      area.bounds = { x1: x1 - 150, z1: z1 - 150, x2: x2 + 150, z2: z2 + 150 };
+    }
+    if (driving) townChunks.update(s.x + s.vx * 1.5, s.z + s.vz * 1.5, 1800);
+    else townChunks.update(x, z, 1200);
+    breakables.update(dt);
     if (driving) {
       // shadows where the car is heading, not where it's been
       followSun(sun, s.x + s.vx * 0.35, s.z + s.vz * 0.35);
@@ -545,14 +514,15 @@ export function buildOutside() {
     }
   }
 
-  return {
+  const area = {
     scene,
     overlay,
     colliders,
     solids,
     world,
     car,
-    // on foot you can wander a little way into the fog bank
+    town: townChunks,
+    // on foot you can wander a little way into the fog bank (widened to the town once it's known)
     bounds: { x1: R.x1 - 150, z1: R.z1 - 150, x2: R.x2 + 150, z2: R.z2 + 150 },
     bankAt,
     interactables: [
@@ -569,4 +539,5 @@ export function buildOutside() {
     driveView: { far: 2400, ink: [260, 950], fog: [420, 1600] },
     caption: 'Home · parking lot',
   };
+  return area;
 }

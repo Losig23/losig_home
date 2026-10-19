@@ -2,20 +2,21 @@
 The blocks around the home lot (nearby.js), built in the lot's style:
 toon materials, the same palette, inked by the same pass.
 
-- Ground is flat geometry in polygon-offset layers (batch.js groundLayer),
-  so grass, fields, drives, streets, lots and paint never z-fight even
-  from the driver's seat a quarter mile out.
+- Ground is flat geometry in depth layers (batch.js GROUND), so grass,
+  fields, drives, streets, lots and paint never z-fight even from the
+  driver's seat a quarter mile out.
 - Streets get curbs (visual only; the car drives over them) with gaps at
   every crossing drive and lot, and the collector streets a double yellow.
 - Buildings tall enough to hide Ani from the follow camera are their own
   meshes and sink to the apartment's 4 ft cutaway like the lot's buildings.
-  Small ones, placeholder houses, trees and poles merge into the tiled
-  static batch.
+  Small ones and trees merge into the tiled static batch; poles and signal
+  masts are breakables. Houses between the measured buildings come from
+  the baked town chunks (chunks.js), like everywhere else in town.
 - paved(x, z) answers "is this pavement?" from a 4 ft raster, so the car
   can bog down on grass.
 */import * as THREE from 'three';
 import { createBatch } from './batch.js';
-import { rng, prism, offsetLine, distToLine, distToSeg, inRect, drawTree, drawUtilityPole, LENS } from './scenery.js';
+import { rng, offsetLine, distToLine, distToSeg, inRect, drawTree } from './scenery.js';
 import * as NEAR from './nearby.js';
 import * as LOT from './home_lot.js';
 
@@ -41,23 +42,23 @@ const SAND = 0xcdab7e;
 const WATER = 0x74c6dc;
 const COURT = 0x6f8f7c;
 const METAL = 0xc9ccce;        // nearby.js's metal-sided sheds
-const HOUSE_SIDING = [0xe8dcc8, 0xc9d3dc, 0xd8c8a8, 0xb9c6b0, 0xe6e0d4, 0xc4b5a5, 0xd9c3b0, 0xa7b6c4];
-const HOUSE_ROOF = [0x7f6a5d, 0x5f6266, 0x6a574b, 0x8d7d70, 0x5f6266, 0x9c4a3c];
+export const HOUSE_SIDING = [0xe8dcc8, 0xc9d3dc, 0xd8c8a8, 0xb9c6b0, 0xe6e0d4, 0xc4b5a5, 0xd9c3b0, 0xa7b6c4];
+export const HOUSE_ROOF = [0x7f6a5d, 0x5f6266, 0x6a574b, 0x8d7d70, 0x5f6266, 0x9c4a3c];
 
 const CUT_MIN_H = 14;          // shorter than this can't hide Ani from the follow camera
 
 
 // ---- buildings: walls, a roof, windows; drawn in the batch's current frame ----
 
-function drawBuilding(t, { x, z, ry = 0, w, d, h, roof = 'gable', c, r, flip, front }) {
+export function drawBuilding(t, { x, z, ry = 0, w, d, h, roof = 'gable', c, r, flip, front, windows = true }) {
   // ridge along the longer side: draw in a frame whose x is the long axis
   const L = Math.max(w, d), D = Math.min(w, d);
   t.frame(x, z, d > w ? ry + Math.PI / 2 : ry);
-  drawBody(t, L, D, h, roof, c, r, flip, front);
+  drawBody(t, L, D, h, roof, c, r, flip, front, windows);
   t.endFrame();
 }
 
-function drawBody(t, L, D, h, roof, c, r, flip, front) {
+function drawBody(t, L, D, h, roof, c, r, flip, front, windows) {
   let eave = h, rise = 0;
   if (roof === 'gable') { rise = Math.min(D * 0.28, 7.5); eave = h - rise; }
   if (roof === 'low') { rise = Math.min(D * 0.1, 3); eave = h - rise; }
@@ -77,16 +78,23 @@ function drawBody(t, L, D, h, roof, c, r, flip, front) {
     t.box(0, eave, 0, L - 1.2, 0.85, D - 1.2, r);
   } else {
     const o = 1.0, half = D / 2, slope = Math.atan2(rise, half), run = half + o;
-    const attic = prism([[-half, 0], [half, 0], [0, rise]], L);
-    attic.translate(0, 0, -L / 2);
-    attic.rotateY(Math.PI / 2);
-    t.geo(attic, c, 0, eave, 0);
+    t.gable(0, eave, 0, L, rise, D, c);
     for (const sz of [-1, 1]) {
       t.geo(new THREE.BoxGeometry(L + 2 * o, 0.45, run / Math.cos(slope)), r,
         0, eave + rise - (run / 2) * Math.tan(slope) + 0.2, sz * run / 2, 0, sz * slope);
     }
   }
-  if (c === METAL) return; // sheds and shops: no windows
+  if (c === METAL || !windows) return; // sheds: no windows
+  if (windows === 'shop') {
+    // storefront glass along the long faces, a row of windows above on taller blocks
+    for (const sz of [-1, 1]) {
+      for (let u = -L / 2 + 8; u <= L / 2 - 7; u += 14) {
+        t.box(u, 1.6, sz * (D / 2 + 0.06), 9, 6.5, 0.3, GLASS);
+        if (eave >= 20) t.box(u, 12.5, sz * (D / 2 + 0.06), 4.6, 4.6, 0.3, GLASS);
+      }
+    }
+    return;
+  }
   // windows along the long faces (two rows on two-story buildings), a couple on the ends
   const floors = eave >= 17 ? [3.4, 13.2] : [3.2];
   for (const sz of [-1, 1]) {
@@ -105,6 +113,29 @@ function drawBody(t, L, D, h, roof, c, r, flip, front) {
   }
 }
 
+/** Storefront glass along each long-enough wall of a footprint polygon ([[x, z], ...]). */
+export function drawStorefronts(t, pts, h) {
+  const n = pts.length;
+  let cx = 0, cz = 0;
+  for (const [x, z] of pts) { cx += x / n; cz += z / n; }
+  for (let i = 0; i < n; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % n];
+    const L = Math.hypot(bx - ax, bz - az);
+    if (L < 16) continue;
+    const tx = (bx - ax) / L, tz = (bz - az) / L;
+    // outward: the side of the wall away from the middle of the building
+    let nx = tz, nz = -tx;
+    const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    if ((mx + nx - cx) ** 2 + (mz + nz - cz) ** 2 < (mx - cx) ** 2 + (mz - cz) ** 2) { nx = -nx; nz = -nz; }
+    const ry = Math.atan2(-tz, tx);
+    for (let u = 8; u <= L - 7; u += 14) {
+      const x = ax + tx * u + nx * 0.15, z = az + tz * u + nz * 0.15;
+      t.box(x, 1.6, z, 9, 6.5, 0.3, GLASS, ry);
+      if (h >= 22) t.box(x, 12.5, z, 4.6, 4.6, 0.3, GLASS, ry);
+    }
+  }
+}
+
 function obb(x, z, w, d, ry = 0) {
   return { x, z, hw: w / 2, hd: d / 2, ry };
 }
@@ -113,12 +144,11 @@ function obb(x, z, w, d, ry = 0) {
 // ---- the build ----
 
 /**
- * ctx: { scene, b (tiled static batch), ground: {landcover, drives, streets,
- * lots, paint} batches, colliders, cuttables, cutH }. Returns { paved }.
+ * ctx: { scene, b (tiled static batch), ground (groundViews), props (a
+ * breakables group), colliders, cuttables, cutH }. Returns { paved }.
  */
-export function buildTown({ scene, b, ground, colliders, cuttables, cutH }) {
+export function buildTown({ scene, b, ground, props, colliders, cuttables, cutH }) {
   const rand = rng(41);
-  const paveSegs = [];   // house driveways, for the pavement raster
   const g = ground;
   const blockers = [];   // footprints houses and trees must avoid: [x1, z1, x2, z2]
 
@@ -264,44 +294,7 @@ export function buildTown({ scene, b, ground, colliders, cuttables, cutH }) {
   }
   for (const a of flatAreas) blockers.push(a);
 
-  // ---- placeholder houses along HOUSE_ROWS (until Phase 3's footprints) ----
   const roadClear = (x, z, pad) => NEAR.ROADS.every((r) => distToLine(x, z, r.pts) > r.w / 2 + pad);
-  const free = (x1, z1, x2, z2) => !blockers.some((a) => x1 < a[2] && x2 > a[0] && z1 < a[3] && z2 > a[1]);
-  for (const row of NEAR.HOUSE_ROWS) {
-    const pts = row.pts;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const [x1, z1] = pts[i], [x2, z2] = pts[i + 1];
-      const len = Math.hypot(x2 - x1, z2 - z1), tx = (x2 - x1) / len, tz = (z2 - z1) / len;
-      for (let s = 30 + rand() * 20; s < len - 25; s += 64 + rand() * 18) {
-        for (const side of row.sides) {
-          const nx = -tz * side, nz = tx * side;            // out from the street
-          const w = 32 + rand() * 12, d = 26 + rand() * 8, back = 42 + rand() * 8;
-          const cx = x1 + tx * s + nx * back, cz = z1 + tz * s + nz * back;
-          const R = Math.hypot(w, d) / 2 + 4;
-          if (!roadClear(cx, cz, R - 4) || !free(cx - R, cz - R, cx + R, cz + R)) continue;
-          const ry = Math.atan2(-nx, -nz);                  // front (+z) faces the street
-          const siding = HOUSE_SIDING[Math.floor(rand() * HOUSE_SIDING.length)];
-          const roofC = HOUSE_ROOF[Math.floor(rand() * HOUSE_ROOF.length)];
-          drawBuilding(b, { x: cx, z: cz, ry, w, d, h: 15 + rand() * 3, c: siding, r: roofC, front: true });
-          colliders.push(obb(cx, cz, w, d, ry));
-          blockers.push([cx - R, cz - R, cx + R, cz + R]);
-          // a driveway beside the house out to the street
-          const gx = cx + tx * (w / 2 + 7), gz = cz + tz * (w / 2 + 7);
-          const sx = gx - nx * (back - 2), sz = gz - nz * (back - 2);
-          g.lots.ribbon([[gx + nx * d / 4, gz + nz * d / 4], [sx, sz]], 10, 0.03, CONCRETE, false);
-          paveSegs.push([gx, gz, sx, sz, 5]);
-          // and usually a yard tree
-          if (rand() < 0.55) {
-            const yx = cx + nx * (d / 2 + 12) - tx * (w / 4), yz = cz + nz * (d / 2 + 12) - tz * (w / 4);
-            if (roadClear(yx, yz, 6)) {
-              drawTree(b, yx, yz, 8 + rand() * 4, rand);
-              colliders.push(obb(yx, yz, 1.8, 1.8));
-            }
-          }
-        }
-      }
-    }
-  }
 
   // ---- trees: stands filled on a jittered grid (like the lot's woods), plus single trees ----
   const treeOk = (x, z) => roadClear(x, z, 6) && !blockers.some((a) => inRect(x, z, a, 3));
@@ -331,27 +324,17 @@ export function buildTown({ scene, b, ground, colliders, cuttables, cutH }) {
     }
     return cross[0][1];
   };
-  for (const x of NEAR.POLES) {
-    const z = crossZ(x) + 27;
-    drawUtilityPole(b, x, z);
-    colliders.push(obb(x, z, 1.2, 1.2));
+  for (const [k, x] of NEAR.POLES.entries()) {
+    const box = props.add(`near:pole${k}`, 'pole', x, crossZ(x) + 27);
+    if (box) colliders.push(box);
   }
   {
+    // signal masts on the four corners, arms reaching over the lanes; stop bars before the corner
     const { x, z } = NEAR.SIGNAL;
-    // mast arms from each corner reach over the approach lanes; stop bars before the corner
-    for (const [sx, sz] of [[1, -1], [-1, 1], [-1, -1], [1, 1]]) {
+    for (const [k, [sx, sz]] of [[1, -1], [-1, 1], [-1, -1], [1, 1]].entries()) {
       const px = x + sx * 30, pz = z + sz * 29;
-      b.cyl(px, 0, pz, 0.45, 20, STEEL, 8, 0.35);
-      colliders.push(obb(px, pz, 1, 1));
-      // the arm runs along the cross street for the north/south corners' approach
-      const ax = sz === -1 ? -sx : 0, az = sz === -1 ? 0 : -sz;
-      const along = sz === -1 ? 16 : 14;
-      b.box(px + ax * along / 2, 18.5, pz + az * along / 2, ax ? along : 0.35, 0.35, az ? along : 0.35, STEEL);
-      const hx = px + ax * along, hz = pz + az * along;
-      b.box(hx, 14.6, hz, 1.2, 3.6, 1.2, 0x3a3d40);
-      for (const [dy, col] of [[17.4, 0xc8102e], [16.2, 0xe3b04b], [15.0, 0x3f9e5a]]) {
-        b.cyl(hx, dy - 0.45, hz, 0.38, 0.9, col, 10);
-      }
+      const box = props.add(`near:signal${k}`, 'signal', px, pz, Math.atan2(px - x, pz - z));
+      if (box) colliders.push(box);
     }
     g.paint.flat(x - 10, 0.06, z - 36, 20, 1.4, PAINT);   // southbound
     g.paint.flat(x + 10, 0.06, z + 36, 20, 1.4, PAINT);   // northbound
@@ -360,7 +343,7 @@ export function buildTown({ scene, b, ground, colliders, cuttables, cutH }) {
   }
 
   // ---- pavement raster for the car (4 ft cells) ----
-  const CELL = 4, pad = NEAR.MARGIN + 120;
+  const CELL = 4, pad = 40;
   const X0 = NEAR.REGION.x1 - pad, Z0 = NEAR.REGION.z1 - pad;
   const W = Math.ceil((NEAR.REGION.x2 - NEAR.REGION.x1 + 2 * pad) / CELL);
   const H = Math.ceil((NEAR.REGION.z2 - NEAR.REGION.z1 + 2 * pad) / CELL);
@@ -383,7 +366,6 @@ export function buildTown({ scene, b, ground, colliders, cuttables, cutH }) {
   for (const r of NEAR.ROADS) markLine(r.pts, r.w / 2 + 1.5);
   for (const s of [...NEAR.SIDEWALKS, ...LOT.SIDEWALKS]) markLine(s.pts, s.w / 2 + 1);
   for (const a of [...flatAreas, ...LOT.WALKS]) markRect(a);
-  for (const [x1, z1, x2, z2, hw] of paveSegs) markSeg(x1, z1, x2, z2, hw);
   markLine(cross, 30); // the lot's frontage strip
   function paved(x, z) {
     const i = Math.floor((x - X0) / CELL), j = Math.floor((z - Z0) / CELL);

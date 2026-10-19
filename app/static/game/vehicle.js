@@ -18,6 +18,9 @@ Units are feet and seconds; heading is three.js rotation.y, so forward is
 - Collision: three circles along the body against the solid boxes, with a
   light bounce (restitution 0.3), a little scraping friction and a spin
   from where the hit lands. The impact speed feeds the camera shake.
+- Breakables: a pole or sign hit above 8 mph snaps off (world.onBreak
+  sends it flying) and the car just loses 15% of its speed; slower, it's
+  as solid as anything else.
 */
 
 export const MPH = 1.46667; // ft/s per mph
@@ -48,6 +51,8 @@ export const TUNE = {
   circles: [-4.6, 0, 4.6], // along the body (local z)
   radius: 3.05,
   inertia: 22,          // (len^2 + w^2) / 12 for unit mass
+  breakSpeed: 8 * MPH,  // poles and signs snap off above this
+  breakDrag: 0.15,      // and cost this much of the car's speed
 };
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -167,11 +172,12 @@ export function createVehicle({ x = 0, z = 0, heading = 0 } = {}) {
 
     // ---- move in small substeps so 160 mph can't tunnel through a pole ----
     s.impact = 0;
+    s.broke = false;
     const n = Math.max(1, Math.ceil(Math.hypot(s.vx, s.vz) * dt / 1.2));
     for (let k = 0; k < n; k++) {
       s.x += s.vx * dt / n;
       s.z += s.vz * dt / n;
-      if (world.solids) resolve(world.solids);
+      if (world.solids) resolve(world);
     }
 
     // hard stop at the far side of the fog bank
@@ -187,15 +193,25 @@ export function createVehicle({ x = 0, z = 0, heading = 0 } = {}) {
     return s;
   }
 
-  // push each body circle out of anything it overlaps and bounce off it
-  function resolve(solids) {
+  // push each body circle out of anything it overlaps and bounce off it;
+  // poles and signs hit above BREAK_SPEED snap off instead (world.onBreak)
+  function resolve(world) {
     for (let pass = 0; pass < 2; pass++) {
       let any = false;
       for (const oz of T.circles) {
         const sn = Math.sin(s.h), cs = Math.cos(s.h);
         const cx = s.x + sn * oz, cz = s.z + cs * oz;
-        solids.contacts(cx, cz, T.radius, contacts);
+        world.solids.contacts(cx, cz, T.radius, contacts);
         for (const c of contacts) {
+          if (c.box.breakable && !c.box.dead && world.onBreak) {
+            if (Math.hypot(s.vx, s.vz) > T.breakSpeed) {
+              world.onBreak(c.box, s.vx, s.vz);
+              s.vx *= 1 - T.breakDrag;
+              s.vz *= 1 - T.breakDrag;
+              s.broke = true;
+              continue;
+            }
+          }
           any = true;
           s.x += c.nx * c.depth;
           s.z += c.nz * c.depth;

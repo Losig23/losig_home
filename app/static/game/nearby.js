@@ -7,9 +7,11 @@ south around its bend, and the side streets in between.
 Same sources and rules as home_lot.js. Roads and sidewalks are
 OpenStreetMap centerlines, simplified to about a foot, with every name
 dropped. Buildings, parking lots, fields and tree stands are measured off
-USGS NAIP aerial imagery, the way the lot was. The houses along the side
-streets southwest of the creek are placeholders, laid out by outside.js
-along HOUSE_ROWS, until the Phase 3 bake brings real building footprints.
+USGS NAIP aerial imagery, the way the lot was. Everything here stops at
+REGION's edge, where the baked town (scripts/build_town.py, chunks.js)
+takes over; the bake leaves this area to the hand-built data, except for
+real building footprints between the measured buildings (the houses on
+the side streets southwest of the creek).
 
 Units are feet from the lot's reference point: x west -> east, z north ->
 south. A building is a box {x, z, w, d, ry, h} turned like three.js
@@ -23,25 +25,22 @@ pitch), a wall color c and a roof color r.
      ║  park   ╲      ╰── bend ── warehouses           ║
 */
 
-// what you can drive; past it a fog bank closes in over MARGIN feet
+// the hand-built area (the baked town is everything around it)
 export const REGION = { x1: -1450, z1: -1250, x2: 1800, z2: 650 };
-export const MARGIN = 260;
 
 // ---- roads: OSM centerlines. kind sets the look: collectors get a double
 // yellow line and curbs, residential streets curbs, service drives neither ----
 export const ROADS = [
   // cross street: the wide collector, east-west past the lot
-  { kind: 'collector', w: 42, pts: [[2250, -233], [-171, -229], [-787, -222], [-1554, -227], [-1900, -227]] },
+  { kind: 'collector', w: 42, pts: [[1800, -232], [-171, -229], [-787, -222], [-1450, -226]] },
   // the north-south arterial at the east end (a signalled corner)
-  { kind: 'collector', w: 44, pts: [[1665, 1100], [1661, -232], [1664, -1344], [1663, -1700]] },
+  { kind: 'collector', w: 44, pts: [[1663, 650], [1661, -232], [1664, -1250]] },
   // the avenue: north past the church grounds, south around the bend
-  { kind: 'res', w: 28, pts: [[-473, -1700], [-478, -1371], [-471, -1271], [-456, -1182], [-430, -1090], [-338, -875], [-269, -721], [-205, -559], [-175, -400], [-171, -229], [-168, 215], [-150, 273], [-106, 343], [-73, 382], [-27, 425], [41, 450], [121, 464], [302, 464]] },
+  { kind: 'res', w: 28, pts: [[-468, -1250], [-456, -1182], [-430, -1090], [-338, -875], [-269, -721], [-205, -559], [-175, -400], [-171, -229], [-168, 215], [-150, 273], [-106, 343], [-73, 382], [-27, 425], [41, 450], [121, 464], [302, 464]] },
   // the residential street that runs south-southeast from the cross street
-  { kind: 'res', w: 30, pts: [[-352, 1100], [-467, 887], [-486, 834], [-550, 635], [-621, 386], [-686, 181], [-776, -122], [-782, -151], [-787, -222]] },
+  { kind: 'res', w: 30, pts: [[-546, 650], [-621, 386], [-686, 181], [-776, -122], [-782, -151], [-787, -222]] },
   // side street west off it
-  { kind: 'res', w: 28, pts: [[-621, 386], [-923, 470], [-966, 479], [-1003, 481], [-1563, 476], [-1592, 471], [-1617, 453], [-1680, 375]] },
-  // side street at the west edge
-  { kind: 'res', w: 28, pts: [[-1900, 497], [-1787, 439], [-1680, 375], [-1600, 256], [-1576, 200], [-1559, 145], [-1554, 87], [-1552, 35], [-1554, -227]] },
+  { kind: 'res', w: 28, pts: [[-621, 386], [-923, 470], [-966, 479], [-1003, 481], [-1450, 477]] },
   // short street north to the east lot
   { kind: 'res', w: 28, pts: [[766, -230], [768, -620]] },
   // the townhouse loop
@@ -62,7 +61,7 @@ export const ROADS = [
   { kind: 'service', w: 22, pts: [[38, -677], [222, -678], [226, -871], [221, -933], [207, -953], [192, -1002]] },
   { kind: 'service', w: 22, pts: [[222, -678], [221, -617]] },
   // north of the church
-  { kind: 'service', w: 22, pts: [[-431, -1094], [-377, -1119], [-354, -1145], [-339, -1186], [-337, -1236], [-342, -1313], [-356, -1352], [-386, -1382], [-417, -1401], [-477, -1410]] },
+  { kind: 'service', w: 22, pts: [[-431, -1094], [-377, -1119], [-354, -1145], [-339, -1186], [-337, -1236], [-338, -1250]] },
   { kind: 'service', w: 22, pts: [[-377, -1119], [-357, -1102], [-341, -1098], [-222, -1096]] },
   // apartments west of the avenue
   { kind: 'service', w: 20, pts: [[-460, -478], [-458, -644], [-302, -722], [-274, -732]] },
@@ -81,7 +80,9 @@ export const ROADS = [
   // neighbor drive across the avenue
   { kind: 'drive', w: 16, pts: [[-169, 121], [-358, 112]] },
   // warehouse yard
-  { kind: 'service', w: 24, pts: [[-34, 419], [-48, 440], [-87, 509], [-88, 674], [-83, 685], [188, 688], [201, 679], [197, 464]] },
+  { kind: 'service', w: 24, pts: [[-34, 419], [-48, 440], [-87, 509], [-88, 650]] },
+  // warehouse yard
+  { kind: 'service', w: 24, pts: [[200, 650], [197, 464]] },
   { kind: 'service', w: 22, pts: [[200, 629], [-88, 627]] },
   // drive south of the lot
   { kind: 'drive', w: 14, pts: [[-150, 273], [167, 258], [183, 239]] },
@@ -90,12 +91,11 @@ export const ROADS = [
 export const SIDEWALKS = [
   { w: 5, pts: [[-817, -169], [-1208, -174]] },
   { w: 5, pts: [[-202, -267], [-477, -268], [-610, -245], [-745, -265]] },
-  { w: 5, pts: [[-805, -266], [-984, -266], [-1003, -250], [-1774, -252], [-1791, -261]] },
+  { w: 5, pts: [[-805, -266], [-984, -266], [-1003, -250], [-1450, -252]] },
   { w: 5, pts: [[-202, -267], [-202, -331], [-204, -387], [-218, -474], [-244, -584], [-290, -695], [-342, -809]] },
-  { w: 5, pts: [[-502, -1700], [-504, -1295], [-498, -1233], [-485, -1171], [-448, -1060]] },
-  { w: 5, pts: [[-764, -169], [-466, 817]] },
+  { w: 5, pts: [[-499, -1250], [-498, -1233], [-485, -1171], [-448, -1060]] },
+  { w: 5, pts: [[-764, -169], [-517, 650]] },
   { w: 5, pts: [[-817, -169], [-729, 163]] },
-  { w: 5, pts: [[-321, 1100], [-466, 817]] },
   { w: 5, pts: [[-669, 364], [-966, 454], [-1214, 452]] },
   { w: 5, pts: [[-740, 445], [-964, 511], [-1426, 507]] },
 ];
@@ -199,11 +199,10 @@ export const GRAVEL = [
 export const FIELDS = [
   // crop fields: north of the church grounds, and southeast of the lot
   [[-100, -1250], [1620, -1250], [1620, -770], [765, -770], [765, -865], [285, -865], [285, -1060], [-100, -1060]],
-  [[-100, -1700], [1620, -1700], [1620, -1250], [-100, -1250]],
-  [[1165, -185], [1595, -185], [1595, 1100], [350, 1100], [350, 310], [1020, 310], [1020, 110], [1165, 110]],
+  [[1165, -185], [1595, -185], [1595, 650], [350, 650], [350, 310], [1020, 310], [1020, 110], [1165, 110]],
 ];
 export const MEADOWS = [
-  [[-350, 150], [-80, 150], [-80, 380], [-180, 330], [-200, 1100], [-350, 1100]],   // wet prairie along the creek
+  [[-350, 150], [-80, 150], [-80, 380], [-180, 330], [-190, 650], [-350, 650]],     // wet prairie along the creek
   [[400, -190], [500, -190], [500, 270], [400, 270]],
 ];
 
@@ -212,7 +211,7 @@ export const WOODS = [
   { x1: -830, z1: -1230, x2: -690, z2: -290, step: 30 },   // along the creek
   { x1: -1000, z1: -1230, x2: -880, z2: -1080, step: 34 },
   { x1: -590, z1: -1070, x2: -410, z2: -690, step: 32 },   // grove west of the avenue
-  { x1: -460, z1: 150, x2: -330, z2: 900, step: 30 },      // creek south of the cross street
+  { x1: -460, z1: 150, x2: -330, z2: 640, step: 30 },      // creek south of the cross street
   { x1: 980, z1: -680, x2: 1150, z2: -555, step: 34 },
   { x1: -1450, z1: 280, x2: -1240, z2: 360, step: 36 },
 ];
@@ -236,10 +235,3 @@ export const COURT = [-555, -665, -500, -550];
 export const SIGNAL = { x: 1661, z: -232 };                 // the signalled corner at the east end
 // utility poles with street lights, south side of the cross street (the lot's run continues)
 export const POLES = [-1320, -1150, -980, -640, -470, 390, 560, 730, 900, 1070, 1240, 1410, 1580];
-
-// ---- placeholder houses: rows along these lines, on the given side(s) ----
-export const HOUSE_ROWS = [
-  { pts: [[-700, 405], [-923, 470], [-1003, 481], [-1530, 476]], sides: [1, -1] },
-  { pts: [[-640, 330], [-550, 635], [-486, 834], [-420, 990]], sides: [1, -1] },
-  { pts: [[-1554, -160], [-1554, 87], [-1576, 200], [-1620, 300]], sides: [1, -1] },
-];
