@@ -55,14 +55,19 @@ export function distToSeg(x, z, x1, z1, x2, z2) {
   return Math.hypot(x - x1 - t * dx, z - z1 - t * dz);
 }
 
-/** A toon tree: trunk plus a cluster of icosahedron blobs. Returns the crown's top height. */
-export function drawTree(b, x, z, R, rand) {
+/**
+ * A toon tree: trunk plus a cluster of icosahedron blobs. Returns the crown's
+ * top height. `lite` (stands of trees seen mostly from a distance) drops two
+ * of the side blobs, about a third fewer triangles for the same silhouette.
+ */
+export function drawTree(b, x, z, R, rand, lite = false) {
   const trunkH = 5 + R * 0.3;
   b.cyl(x, 0, z, 0.75, trunkH + R * 0.5, TRUNK, 8, 0.45);
   const cy = trunkH + R * 0.7;
-  b.blob(x, cy, z, R * 0.7, LEAVES[Math.floor(rand() * LEAVES.length)], 0.85);
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + rand() * 1.2;
+  b.blob(x, cy, z, R * (lite ? 0.78 : 0.7), LEAVES[Math.floor(rand() * LEAVES.length)], 0.85);
+  const n = lite ? 2 : 4;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + rand() * 1.2;
     b.blob(x + Math.cos(a) * R * 0.48, cy + (rand() - 0.35) * R * 0.4, z + Math.sin(a) * R * 0.48,
       R * (0.42 + rand() * 0.14), LEAVES[Math.floor(rand() * LEAVES.length)], 0.85);
   }

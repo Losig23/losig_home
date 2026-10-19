@@ -311,7 +311,7 @@ export function buildTown({ scene, b, ground, colliders, cuttables, cutH }) {
         if (rand() < 0.2) continue;
         const tx = x + (rand() - 0.5) * w.step * 0.6, tz = z + (rand() - 0.5) * w.step * 0.6;
         if (!treeOk(tx, tz)) continue;
-        drawTree(b, tx, tz, 10 + rand() * 5, rand);
+        drawTree(b, tx, tz, 10 + rand() * 5, rand, true);
         colliders.push(obb(tx, tz, 1.8, 1.8));
       }
     }

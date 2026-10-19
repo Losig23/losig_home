@@ -257,7 +257,7 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
   stick.id = e.pointerId;
   stick.ox = e.clientX;
   stick.oy = e.clientY;
-  renderer.domElement.setPointerCapture(e.pointerId);
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
   stickEl.style.left = `${e.clientX}px`;
   stickEl.style.top = `${e.clientY}px`;
   knobEl.style.transform = "";

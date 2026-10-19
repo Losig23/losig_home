@@ -9,7 +9,7 @@ loop, the two driving cameras and the dashboard HUD.
 - Physics steps at a fixed 60 Hz (vehicle.js). The car is drawn
   interpolated between the last two steps so it's smooth at any frame rate,
   with a little body roll and pitch from the forces.
-- Cameras: the cockpit (default) sits at the driver's eye and glances into
+- Cameras: the cockpit (the default, except on portrait phones) sits at the driver's eye and glances into
   turns; the chase camera trails on a lagging yaw, backs off and widens its
   FOV with speed, and pulls in when a wall gets between it and the car.
   C or the camera sticker toggles; main.js blends every camera change.
@@ -41,7 +41,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
   const pose = { x: s.x, z: s.z, h: s.h };
   let acc = 0;
   let active = false;
-  let mode = 'cockpit';
+  let mode = null;              // first time in: cockpit, or chase on a portrait phone
   let enterT = 0;
   let trauma = 0, shakeT = 0;
   let y = 0, roll = 0, pitch = 0;
@@ -58,8 +58,8 @@ export function createDriver({ area, keys, stick, ui, player }) {
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       pedals[name].add(e.pointerId);
-      el.setPointerCapture?.(e.pointerId);
       el.classList.add('on');
+      try { el.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     });
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
@@ -187,7 +187,9 @@ export function createDriver({ area, keys, stick, ui, player }) {
     // pulled in, it rises to look down over the roof
     out.position.set(pose.x - sn * dist, y + chase.lift * (1.5 - 0.5 * dist / chase.dist), pose.z - cs * dist);
     const r = shake(out);
-    look.set(pose.x + Math.sin(pose.h) * 6, y + 3.6, pose.z + Math.cos(pose.h) * 6);
+    // pulled in tight, look further up the road rather than down at the roof
+    const ahead = 6 + 26 * (1 - dist / chase.dist);
+    look.set(pose.x + Math.sin(pose.h) * ahead, y + 3.6, pose.z + Math.cos(pose.h) * ahead);
     _m.lookAt(out.position, look, THREE.Object3D.DEFAULT_UP);
     out.quaternion.setFromRotationMatrix(_m);
     if (r) out.quaternion.multiply(_q.setFromAxisAngle(new THREE.Vector3(0, 0, 1), r));
@@ -251,6 +253,8 @@ export function createDriver({ area, keys, stick, ui, player }) {
       Object.assign(pose, prev);
       acc = 0; enterT = 0; trauma = 0;
       chase.yaw = s.h;
+      // a portrait phone's cockpit is mostly headliner and dash, so it starts behind the car
+      if (mode === null) mode = innerWidth < innerHeight ? 'chase' : 'cockpit';
       y = area.heightAt(s.x, s.z);
       active = true;
       area.car.parked = false;
@@ -295,7 +299,5 @@ export function createDriver({ area, keys, stick, ui, player }) {
       if (active) setMode(mode === 'cockpit' ? 'chase' : 'cockpit');
     },
 
-    /** Inside the car's footprint the camera mustn't cut away the RAV4 itself. */
-    releaseInputs: releasePedals,
   };
 }
