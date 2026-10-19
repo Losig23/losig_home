@@ -130,18 +130,25 @@ function drawWheel(b, spec, sx, sz, local = false) {
 }
 
 
-/** The hero RAV4 as its own group: one body mesh + four wheel meshes (they'll spin and steer). */
+/**
+ * The hero RAV4 as its own group: a chassis (body, and the cockpit when you're
+ * in it) that leans in turns, plus four wheel meshes that spin and steer.
+ */
 export function createRav4() {
   const g = new THREE.Group();
+  const chassis = new THREE.Group();
+  g.add(chassis);
   const body = createBatch();
   drawBody(body, RAV4, RAV4.color);
-  g.add(body.build());
+  chassis.add(body.build());
   const wheels = [];
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     const wb = createBatch();
     drawWheel(wb, RAV4, sx, sz, true);
     const m = wb.build();
     m.position.set(sx * RAV4.track / 2, RAV4.tireR, sz * RAV4.wheelbase / 2);
+    m.rotation.order = 'YXZ'; // roll about the axle, then steer
+    m.userData.front = sz > 0;
     g.add(m);
     wheels.push(m);
   }
@@ -151,7 +158,100 @@ export function createRav4() {
   pad.position.y = 0.03;
   pad.receiveShadow = true;
   g.add(pad);
-  return { group: g, wheels, spec: RAV4 };
+  const cockpit = createCockpit();
+  cockpit.group.visible = false;
+  chassis.add(cockpit.group);
+  return { group: g, chassis, wheels, cockpit, spec: RAV4 };
+}
+
+
+// ---- cockpit: what you see from the driver's seat ----
+
+const DASH = 0x5a5560;      // warm gray plastic
+const DASH_LO = 0x45414b;
+const HEADLINER = 0xd9d3c7;
+const DOOR_IN = 0x4a4650;
+const SKIN = 0xb47c5c;      // Ani's hands on the wheel
+const KIT = 0xc8102e;       // gauge needles in the jersey red
+
+/** Driver's eye in car-local feet (left seat: +X is the driver's side). */
+export const EYE = new THREE.Vector3(1.25, 4.5, -0.9);
+
+/**
+ * A simple toon interior: dash with a gauge binnacle and screen, A-pillars,
+ * header and headliner, door tops, rear-view mirror, and a steering wheel
+ * (with Ani's hands at ten and two) that turns with the steering.
+ */
+export function createCockpit() {
+  const group = new THREE.Group();
+  const b = createBatch();
+  const { w, beltY, roofY } = RAV4;
+  const [, g1] = RAV4.glassZ;
+  const zTop = g1 - RAV4.glassFront;            // where the windshield meets the roof
+
+  // dash: a lower block, a rounded-off top pad, the binnacle over the gauges
+  b.box(0, 2.15, 2.15, w - 0.7, 1.0, 1.1, DASH_LO);
+  b.geo(taperBox(w - 0.7, 0.4, 1.25, 0.15, 0.25, 0.05), DASH, 0, 3.15 + 0.2, 2.05);
+  b.box(EYE.x, 3.3, 1.55, 1.4, 0.3, 0.7, DASH);
+  b.box(EYE.x, 3.6, 1.6, 1.5, 0.05, 0.85, DASH_LO);                 // binnacle hood
+  for (const dx of [-0.3, 0.3]) {
+    const dial = new THREE.CylinderGeometry(0.17, 0.17, 0.05, 16);
+    dial.rotateX(Math.PI / 2 - 0.25);
+    b.geo(dial, 0xfffdf6, EYE.x + dx, 3.45, 1.19);
+    b.geo(new THREE.BoxGeometry(0.03, 0.12, 0.03), KIT, EYE.x + dx, 3.47, 1.16, 0, -0.25, 0.7);
+  }
+  // center screen and console
+  b.geo(new THREE.BoxGeometry(0.95, 0.5, 0.08), 0x1d1b22, 0, 3.4, 1.62, 0, -0.35);
+  b.box(0, 1.2, 0.4, 0.85, 1.6, 2.6, DASH_LO);
+  // A-pillars: windshield base corners up to the roof
+  for (const sx of [-1, 1]) {
+    const x0 = sx * (w / 2 - 0.35), x1 = sx * (w / 2 - 0.75);
+    const dy = roofY - beltY, dz = zTop - g1, dx = x1 - x0;
+    const len = Math.hypot(dx, dy, dz);
+    b.geo(new THREE.BoxGeometry(0.24, len, 0.3), DASH, (x0 + x1) / 2, (beltY + roofY) / 2, (g1 + zTop) / 2,
+      0, Math.atan2(dz, dy), -Math.atan2(dx, dy));
+    // door tops and window sills running back from the pillars
+    b.box(sx * (w / 2 - 0.3), 2.2, -1.2, 0.35, 1.2, 5.2, DOOR_IN);
+    b.box(sx * (w / 2 - 0.42), 3.38, -1.2, 0.42, 0.12, 5.2, DASH);
+  }
+  // header above the windshield, headliner, rear-view mirror
+  b.box(0, roofY - 0.28, zTop - 0.05, w - 1.4, 0.2, 0.45, DASH);
+  b.box(0, roofY - 0.2, -2.9, w - 1.2, 0.1, 6.5, HEADLINER);
+  b.box(0, roofY - 0.42, zTop + 0.32, 0.07, 0.16, 0.07, DASH_LO);
+  b.geo(new THREE.BoxGeometry(0.7, 0.2, 0.1), DASH_LO, 0, roofY - 0.52, zTop + 0.3, 0, 0.12);
+  b.geo(new THREE.BoxGeometry(0.62, 0.14, 0.03), 0xbcd3e0, 0, roofY - 0.52, zTop + 0.245, 0, 0.12);
+  const shell = b.build({ castShadow: false });
+
+  // steering wheel on its column, tipped back toward the driver
+  const mount = new THREE.Group();
+  mount.position.set(EYE.x, 3.25, 1.05);
+  mount.rotation.x = 0.42;
+  const wheel = new THREE.Group();
+  mount.add(wheel);
+  const wb = createBatch();
+  wb.geo(new THREE.TorusGeometry(0.6, 0.085, 6, 24), 0x26232b);
+  wb.geo(new THREE.CylinderGeometry(0.2, 0.2, 0.14, 12), DASH, 0, 0, 0.02, 0, Math.PI / 2);
+  for (const a of [Math.PI / 2, -Math.PI / 2, Math.PI]) {
+    // spokes at three, nine and six o'clock
+    wb.geo(new THREE.BoxGeometry(0.5, 0.09, 0.05), DASH, Math.cos(a) * 0.36, Math.sin(a) * 0.36, 0.02, 0, 0, a);
+  }
+  wb.geo(new THREE.CylinderGeometry(0.09, 0.11, 1.1, 8), DASH_LO, 0, 0, 0.58, 0, Math.PI / 2); // column
+  for (const sx of [-1, 1]) {
+    // hands at ten and two, forearms running back toward the seat and out of view
+    const hand = new THREE.Vector3(sx * 0.52, 0.3, -0.06);
+    const elbow = new THREE.Vector3(sx * 0.85, -0.75, -0.75);
+    const blob = new THREE.SphereGeometry(1, 10, 8);
+    blob.scale(0.12, 0.14, 0.1);
+    wb.geo(blob, SKIN, hand.x, hand.y, hand.z);
+    const dir = elbow.clone().sub(hand);
+    const arm = new THREE.CapsuleGeometry(0.095, dir.length(), 3, 8);
+    arm.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize()));
+    const mid = hand.clone().add(elbow).multiplyScalar(0.5);
+    wb.geo(arm, SKIN, mid.x, mid.y, mid.z);
+  }
+  wheel.add(wb.build({ castShadow: false }));
+  group.add(shell, mount);
+  return { group, wheel };
 }
 
 /** A parked car merged into static scenery. heading: radians, 0 = facing +Z. */

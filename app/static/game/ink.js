@@ -85,7 +85,7 @@ export function createInk(renderer, camera) {
 
   const colorRT = new THREE.WebGLRenderTarget(size.x, size.y, {
     type: THREE.HalfFloatType,
-    samples: 4,
+    samples: matchMedia('(pointer: coarse)').matches ? 2 : 4, // phones: 2x MSAA
   });
   const normalRT = new THREE.WebGLRenderTarget(size.x, size.y, {
     minFilter: THREE.NearestFilter,
@@ -120,11 +120,13 @@ export function createInk(renderer, camera) {
   postScene.add(quad);
   const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
+  // after a resize or a pixel-ratio change
   function setSize() {
     const s = renderer.getDrawingBufferSize(new THREE.Vector2());
     colorRT.setSize(s.x, s.y);
     normalRT.setSize(s.x, s.y);
     mat.uniforms.texel.value.set(1 / s.x, 1 / s.y);
+    mat.uniforms.thickness.value = Math.max(1, renderer.getPixelRatio() * 0.9);
   }
 
   function setFade(start, end) {
