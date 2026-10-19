@@ -1,12 +1,17 @@
 /*
-Apartment MVP entry point: renderer, ink post pass, follow camera, input,
-game loop, interaction prompts, and the slide-in panel.
+Game entry point: renderer, ink post pass, follow camera, input, game
+loop, interaction prompts, the slide-in panel, and travel between areas.
+
+An area is one walkable place with its own scene, colliders, doors and
+camera framing: the apartment (world.js) and, through its front door, the
+lot outside (outside.js, loaded the first time you walk out so the
+apartment's first load stays the same). Doors are interactables with a
+`go` target; using one fades to black and swaps areas.
 */import * as THREE from 'three';
-import { buildWorld } from './world.js';
+import { buildApartment } from './world.js';
 import { createInk } from './ink.js';
 import { LABEL_FONT } from './pencil.js';
 import { createPlayer } from './player.js';
-import { INTERACTABLES, SPAWN } from './apartment.js';
 import { renderPanel, bindPanel } from './panels.js';
 
 const container = document.getElementById("scene");
@@ -16,6 +21,8 @@ const panel = document.getElementById("panel");
 const panelTitle = document.getElementById("panelTitle");
 const panelBody = document.getElementById("panelBody");
 const authPill = document.getElementById("authpill");
+const fadeEl = document.getElementById("fade");
+const placeEl = document.getElementById("place");
 
 let renderer;
 try {
@@ -39,26 +46,52 @@ await Promise.race([
   new Promise((r) => setTimeout(r, 1500)),
 ]);
 
-const scene = new THREE.Scene();
-const { colliders, overlay } = buildWorld(scene);
-const player = createPlayer(scene);
-player.state.x = SPAWN.x;
-player.state.z = SPAWN.z;
-if (SPAWN.dirX !== undefined) { player.state.dirX = SPAWN.dirX; player.state.dirZ = SPAWN.dirZ; }
+// ---- areas ----
+const areas = { apartment: buildApartment() };
+const loaders = { outside: async () => (await import('./outside.js')).buildOutside() };
+let area = null;
+let areaName = null;
 
+const player = createPlayer(areas.apartment.scene);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
-const CAM_OFF = new THREE.Vector3(0, 14.5, 12);
+const camOff = new THREE.Vector3();
 const camTarget = new THREE.Vector3();
-// start the camera already behind the player instead of sweeping in from the origin
-camera.position.set(SPAWN.x + CAM_OFF.x, CAM_OFF.y, SPAWN.z + CAM_OFF.z);
+const ink = createInk(renderer, camera);
 
-const ink = createInk(renderer, scene, camera);
+function enter(name) {
+  area = areas[name];
+  areaName = name;
+  document.body.dataset.area = name;
+  area.scene.add(player.group); // re-parents out of the previous area's scene
+  const e = area.entry;
+  Object.assign(player.state, { x: e.x, z: e.z, y: 0, dirX: e.dirX ?? 0, dirZ: e.dirZ ?? -1 });
+  frameCamera();
+  camera.near = area.view.near ?? 0.1;
+  camera.far = area.view.far;
+  camera.updateProjectionMatrix();
+  ink.setFade(...area.view.ink);
+  // start the camera already behind the player instead of sweeping across the map
+  camera.position.set(e.x + camOff.x, camOff.y, e.z + camOff.z);
+}
+
+// Portrait phones see a narrow slice; areas that ask for it (outdoors) pull
+// the camera back so you still see the lot around you.
+function frameCamera() {
+  const widen = area.view.widen && camera.aspect < 1 ? Math.min(1.5, camera.aspect ** -0.5) : 1;
+  camOff.fromArray(area.view.off).multiplyScalar(widen);
+}
+
+// /game?start=outside drops you straight into the lot (handy for testing)
+const start = new URLSearchParams(location.search).get("start") === "outside" ? "outside" : "apartment";
+if (!areas[start]) areas[start] = await loaders[start]();
+enter(start);
 
 addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
   ink.setSize();
+  frameCamera();
 });
 
 // ---- input ----
@@ -67,7 +100,7 @@ addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
   keys[k === " " ? " " : k] = true;
-  if (k === "e" && !panelOpen && nearest) openPanel(nearest);
+  if (k === "e" && !panelOpen && nearest) use(nearest);
   else if (k === "e" && panelOpen) closePanel();
   if (k === "escape") closePanel();
 });
@@ -113,17 +146,17 @@ renderer.domElement.addEventListener("pointermove", (e) => {
   stick.x = d ? (dx / Math.min(d, STICK_R)) * pace : 0;
   stick.z = d ? (dy / Math.min(d, STICK_R)) * pace : 0;
 });
-const releaseStick = (e) => {
-  if (e.pointerId !== stick.id) return;
+const resetStick = () => {
   stick.id = null;
   stick.x = stick.z = 0;
   stickEl.classList.remove("on");
 };
+const releaseStick = (e) => { if (e.pointerId === stick.id) resetStick(); };
 renderer.domElement.addEventListener("pointerup", releaseStick);
 renderer.domElement.addEventListener("pointercancel", releaseStick);
 
 // the speech bubble doubles as the interact button on touch
-promptEl.addEventListener("click", () => { if (!panelOpen && nearest) openPanel(nearest); });
+promptEl.addEventListener("click", () => { if (!panelOpen && nearest) use(nearest); });
 
 const dir = () => {
   const x = ((keys.d || keys.arrowright) ? 1 : 0) - ((keys.a || keys.arrowleft) ? 1 : 0);
@@ -149,11 +182,17 @@ let panelKind = null;
 
 function findNearest() {
   let best = null, bestD = Infinity;
-  for (const it of INTERACTABLES) {
+  for (const it of area.interactables) {
     const d = Math.hypot(player.state.x - it.x, player.state.z - it.z);
     if (d < it.r && d < bestD) { best = it; bestD = d; }
   }
   return best;
+}
+
+// doors travel; everything else opens its panel
+function use(it) {
+  if (it.go) travel(it.go);
+  else openPanel(it);
 }
 
 async function openPanel(it) {
@@ -176,6 +215,36 @@ function closePanel() {
 }
 document.getElementById("panelClose").addEventListener("click", closePanel);
 
+// ---- travel: fade to black, swap areas, fade back in ----
+let travelling = false;
+let placeTimer = 0;
+
+async function travel(to) {
+  if (travelling || to === areaName) return;
+  travelling = true;
+  closePanel();
+  resetStick();
+  fadeEl.classList.add("on");
+  await new Promise((r) => setTimeout(r, 280));
+  try {
+    if (!areas[to]) areas[to] = await loaders[to]();
+    enter(to);
+    showPlace(area.caption);
+  } catch (err) {
+    console.error(`couldn't load ${to}`, err); // stay where we are
+  }
+  fadeEl.classList.remove("on");
+  travelling = false;
+}
+
+function showPlace(text) {
+  if (!text) return;
+  placeEl.textContent = text;
+  placeEl.classList.add("show");
+  clearTimeout(placeTimer);
+  placeTimer = setTimeout(() => placeEl.classList.remove("show"), 2600);
+}
+
 // ---- loop ----
 const clock = new THREE.Clock();
 let firstFrame = true;
@@ -184,9 +253,9 @@ function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  if (!panelOpen) player.update(dt, dir(), colliders);
+  if (!panelOpen && !travelling) player.update(dt, dir(), area);
 
-  nearest = findNearest();
+  nearest = travelling ? null : findNearest();
   if (nearest && !panelOpen) {
     promptLabel.textContent = nearest.label;
     promptEl.style.display = "block";
@@ -195,11 +264,14 @@ function tick() {
   }
 
   // follow camera, eased
-  camTarget.set(player.state.x + CAM_OFF.x, CAM_OFF.y, player.state.z + CAM_OFF.z);
+  const { x, y, z } = player.state;
+  camTarget.set(x + camOff.x, y + camOff.y, z + camOff.z);
   camera.position.lerp(camTarget, 1 - Math.pow(0.001, dt));
-  camera.lookAt(player.state.x, 2.6, player.state.z);
+  camera.lookAt(x, y + area.view.lookY, z);
 
-  ink.render(overlay, clock.elapsedTime);
+  area.update?.(dt, camera, player);
+
+  ink.render(area.scene, area.overlay, clock.elapsedTime);
   if (firstFrame) {
     firstFrame = false;
     document.getElementById("loading").style.display = "none";

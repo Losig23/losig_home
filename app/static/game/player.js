@@ -4,11 +4,15 @@ curly fringe on a high fade, hex-frame glasses, full beard,
 Liverpool home jersey (M.SALAH 11), black jeans, white sneakers. Two-segment arms and legs give
 the code-driven walk cycle knees and elbows. Circle-vs-AABB collision,
 axis-separated so you slide along walls. Local +Z is forward.
+
+Each area hands update() its own colliders, walkable bounds, top speed and
+ground height (outside: a step up onto sidewalks). Past a brisk walk the
+cycle blends into a run: longer stride, bent arms, a forward lean.
 */import * as THREE from 'three';
 import { pencil } from './pencil.js';
 
 const RADIUS = 0.55;
-const SPEED = 6.5; // ft/s
+const WALK = 6.5; // ft/s, the apartment pace
 
 const SKIN = 0xb47c5c;
 const HAIR = 0x1d1a20;
@@ -178,52 +182,65 @@ export function createPlayer(scene) {
 
   scene.add(g);
 
-  const state = { x: 0, z: 0, dirX: 0, dirZ: -1, walkT: 0, idleT: 0, moving: false };
+  const state = { x: 0, z: 0, y: 0, dirX: 0, dirZ: -1, walkT: 0, idleT: 0, moving: false, run: 0 };
 
-  function hits(x, z, colliders) {
+  function hits(x, z, colliders, b) {
     for (const c of colliders) {
       const nx = Math.max(c.x1, Math.min(x, c.x2));
       const nz = Math.max(c.z1, Math.min(z, c.z2));
       if ((x - nx) ** 2 + (z - nz) ** 2 < RADIUS * RADIUS) return true;
     }
-    // stay inside the apartment shell (balcony is visual only)
-    if (x < 0.8 || x > 31.2 || z < 0.8 || z > 19.2) return true;
-    return false;
+    // stay inside the area's walkable box (the apartment shell, the lot's surroundings)
+    return x < b.x1 || x > b.x2 || z < b.z1 || z > b.z2;
   }
 
   // move: {x, z} in world axes; length 1 is full speed (a touch stick can
-  // push less than that to walk slower)
-  function update(dt, move, colliders) {
+  // push less than that to walk slower). area: { colliders, bounds, speed, heightAt }
+  function update(dt, move, area) {
+    const speed = area.speed || WALK;
     let dx = move.x, dz = move.z;
     const len = Math.hypot(dx, dz);
     state.moving = len > 0;
+    let pace = 0;
     if (len > 0) {
       dx /= len; dz /= len;
       state.dirX = dx; state.dirZ = dz;
-      const pace = Math.min(len, 1);
-      const step = SPEED * pace * dt;
-      if (!hits(state.x + dx * step, state.z, colliders)) state.x += dx * step;
-      if (!hits(state.x, state.z + dz * step, colliders)) state.z += dz * step;
-      state.walkT += dt * 11 * pace;
+      pace = Math.min(len, 1);
+      const step = speed * pace * dt;
+      if (!hits(state.x + dx * step, state.z, area.colliders, area.bounds)) state.x += dx * step;
+      if (!hits(state.x, state.z + dz * step, area.colliders, area.bounds)) state.z += dz * step;
+      // cadence follows ground speed; past a walk the stride lengthens instead
+      const v = speed * pace / WALK;
+      state.walkT += dt * 11 * (v <= 1 ? v : 1 + (v - 1) * 0.45);
     }
-    g.position.set(state.x, 0, state.z);
+    // ease the run blend so the gait doesn't snap when a thumb wavers
+    const runTarget = state.moving ? Math.min(1, Math.max(0, (speed * pace - 8) / 4)) : 0;
+    state.run += (runTarget - state.run) * Math.min(1, dt * 8);
+    // step up/down onto raised ground (sidewalks) quickly but not instantly
+    const groundY = area.heightAt ? area.heightAt(state.x, state.z) : 0;
+    state.y += (groundY - state.y) * Math.min(1, dt * 18);
+    g.position.set(state.x, state.y, state.z);
     g.rotation.y = Math.atan2(state.dirX, state.dirZ);
 
     // walk cycle: hips swing, knees fold on the back-swing, arms counter-swing
-    // (+rotation.x swings a limb backward); idle: gentle breathing
+    // (+rotation.x swings a limb backward); idle: gentle breathing.
+    // run: same phases with a longer stride, arms bent ~90 deg, a forward lean.
     state.idleT += dt;
     const w = state.moving ? 1 : 0;
+    const r = state.run;
     const s = Math.sin(state.walkT);
-    legL.hip.rotation.x = -s * 0.5 * w;
-    legR.hip.rotation.x = s * 0.5 * w;
-    legL.knee.rotation.x = Math.max(0, Math.sin(state.walkT - 1.3)) * 0.9 * w;
-    legR.knee.rotation.x = Math.max(0, -Math.sin(state.walkT - 1.3)) * 0.9 * w;
-    armL.shoulder.rotation.x = s * 0.45 * w;
-    armR.shoulder.rotation.x = -s * 0.45 * w;
-    armL.elbow.rotation.x = -0.15 - Math.max(0, -s) * 0.4 * w;
-    armR.elbow.rotation.x = -0.15 - Math.max(0, s) * 0.4 * w;
+    const hipA = 0.5 + r * 0.35, kneeA = 0.9 + r * 0.6, armA = 0.45 + r * 0.3;
+    legL.hip.rotation.x = -s * hipA * w;
+    legR.hip.rotation.x = s * hipA * w;
+    legL.knee.rotation.x = Math.max(0, Math.sin(state.walkT - 1.3)) * kneeA * w;
+    legR.knee.rotation.x = Math.max(0, -Math.sin(state.walkT - 1.3)) * kneeA * w;
+    armL.shoulder.rotation.x = s * armA * w;
+    armR.shoulder.rotation.x = -s * armA * w;
+    armL.elbow.rotation.x = -0.15 - r * 1.1 - Math.max(0, -s) * 0.4 * w;
+    armR.elbow.rotation.x = -0.15 - r * 1.1 - Math.max(0, s) * 0.4 * w;
+    rig.rotation.x = r * 0.14;
     rig.position.y = state.moving
-      ? Math.abs(Math.cos(state.walkT)) * 0.07 - 0.03
+      ? Math.abs(Math.cos(state.walkT)) * (0.07 + r * 0.12) - 0.03
       : Math.sin(state.idleT * 2.2) * 0.015;
     head.rotation.z = state.moving ? s * 0.03 : 0;
   }

@@ -3,13 +3,14 @@ Builds the apartment meshes from apartment.js data.
 
 Anime look: cel-shaded toon materials (pencil.js), ink line art (ink.js),
 cutaway walls (half height so rooms read from the follow camera). The
-building sits on a blank pale ground that fades into the sky haze — the
-outside world (street, gym, office) comes in a later phase. Returns the
+building sits on a blank pale ground that fades into the sky haze; the
+front door leads to the outdoor area (outside.js). buildWorld returns the
 collider list ({x1,z1,x2,z2} footprints the player can't enter) and an
-overlay scene for un-inked sprites (room labels).
+overlay scene for un-inked sprites (room labels); buildApartment wraps
+that as an area for main.js.
 */import * as THREE from 'three';
 import { pencil, addLights, makeLabel } from './pencil.js';
-import { WALLS, WALL_T, FURNITURE, LABELS, FLOORS } from './apartment.js';
+import { WALLS, WALL_T, FURNITURE, LABELS, FLOORS, INTERACTABLES, SPAWN, BOUNDS } from './apartment.js';
 
 const WALL_C = 0xfbf5e6;
 const SKY = 0xdde9ec;
@@ -107,5 +108,21 @@ export function buildWorld(scene) {
   }
 
   return { colliders, overlay };
+}
+
+
+/** The apartment as an area: its own scene, colliders, door, and the dollhouse camera. */
+export function buildApartment() {
+  const scene = new THREE.Scene();
+  const { colliders, overlay } = buildWorld(scene);
+  return {
+    scene, overlay, colliders,
+    bounds: BOUNDS,
+    interactables: INTERACTABLES,
+    entry: SPAWN,
+    // camera offset from the player, look-at height, far plane, ink fade band
+    view: { off: [0, 14.5, 12], lookY: 2.6, far: 200, ink: [55, 110] },
+    caption: 'Home · apartment',
+  };
 }
 

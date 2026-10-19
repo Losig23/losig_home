@@ -41,21 +41,40 @@ export function outlined(mesh, s = 1.045) {
 }
 
 
-/** Anime daylight: sky-blue fill + warm sun with hard-edged shadows. */
-export function addLights(scene) {
+// sun direction: from the south-east, high (the apartment's original placement)
+const SUN_DIR = new THREE.Vector3(16, 30, 10);
+
+/**
+ * Anime daylight: sky-blue fill + warm sun with hard-edged shadows.
+ * Defaults frame the apartment; outdoors passes a bigger shadow box that
+ * follows the player (followSun), with `reach` pulling the sun back so the
+ * shadow camera clears the trees.
+ */
+export function addLights(scene, { x = 16, z = 8, extent = 34, far = 90, reach = 1, mapSize = 2048 } = {}) {
   scene.add(new THREE.HemisphereLight(0xcfe8ff, 0xd9c7a8, 2.1));
 
   const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
-  sun.target.position.set(16, 0, 8);
-  sun.position.set(16 + 16, 30, 8 + 10);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(mapSize, mapSize);
   const c = sun.shadow.camera;
-  c.left = -34; c.right = 34; c.top = 34; c.bottom = -34;
-  c.near = 1; c.far = 90;
+  c.left = -extent; c.right = extent; c.top = extent; c.bottom = -extent;
+  c.near = 1; c.far = far;
   sun.shadow.bias = -0.0015;
   sun.shadow.normalBias = 0.02;
+  sun.userData.offset = SUN_DIR.clone().multiplyScalar(reach);
+  sun.userData.texel = (2 * extent) / mapSize;
   scene.add(sun, sun.target);
+  followSun(sun, x, z);
+  return sun;
+}
+
+/** Re-center the sun's shadow box, snapped to whole shadow texels so edges don't shimmer. */
+export function followSun(sun, x, z) {
+  const t = sun.userData.texel;
+  x = Math.round(x / t) * t;
+  z = Math.round(z / t) * t;
+  sun.target.position.set(x, 0, z);
+  sun.position.set(x, 0, z).add(sun.userData.offset);
 }
 
 

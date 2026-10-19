@@ -6,6 +6,10 @@ with a normal override into a target that also keeps depth. A full-screen
 shader then inks pixels where depth jumps (silhouettes) or normals bend
 (creases), grades the color toward a soft cel palette, and adds a little
 paper grain. Overlay objects (labels, petals) are drawn after, un-inked.
+
+The scene is passed per frame (the apartment and the outdoors are separate
+scenes), and lines fade out over a per-area distance band (setFade): the
+apartment's 55-110 ft, much further outside.
 */import * as THREE from 'three';
 
 const VERT = /* glsl */`
@@ -23,6 +27,7 @@ uniform float far;
 uniform float thickness;
 uniform float time;
 uniform vec3 ink;
+uniform vec2 fade;
 varying vec2 vUv;
 
 float viewZ(vec2 uv) {
@@ -53,7 +58,7 @@ void main() {
                  max(1.0 - dot(n, nrm(vUv - oy)), 1.0 - dot(n, nrm(vUv + oy))));
   float nEdge = smoothstep(0.3, 0.6, nd);
 
-  float edge = max(dEdge, nEdge) * (1.0 - smoothstep(55.0, 110.0, z));
+  float edge = max(dEdge, nEdge) * (1.0 - smoothstep(fade.x, fade.y, z));
 
   vec3 col = texture2D(tColor, vUv).rgb;
   col = toSRGB(clamp(col, 0.0, 1.0));
@@ -75,7 +80,7 @@ void main() {
 `;
 
 
-export function createInk(renderer, scene, camera) {
+export function createInk(renderer, camera) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
 
   const colorRT = new THREE.WebGLRenderTarget(size.x, size.y, {
@@ -105,6 +110,7 @@ export function createInk(renderer, scene, camera) {
       time: { value: 0 },
       // display-space (sRGB) components: the shader inks after its sRGB encode
       ink: { value: new THREE.Vector3(0x2a / 255, 0x24 / 255, 0x33 / 255) },
+      fade: { value: new THREE.Vector2(55, 110) },
     },
   });
 
@@ -121,7 +127,15 @@ export function createInk(renderer, scene, camera) {
     mat.uniforms.texel.value.set(1 / s.x, 1 / s.y);
   }
 
-  function render(overlay, t) {
+  function setFade(start, end) {
+    mat.uniforms.fade.value.set(start, end);
+  }
+
+  function render(scene, overlay, t) {
+    // cameras change far plane between areas
+    mat.uniforms.near.value = camera.near;
+    mat.uniforms.far.value = camera.far;
+
     // 1) color
     renderer.setRenderTarget(colorRT);
     renderer.render(scene, camera);
@@ -151,5 +165,5 @@ export function createInk(renderer, scene, camera) {
     }
   }
 
-  return { render, setSize };
+  return { render, setSize, setFade };
 }
