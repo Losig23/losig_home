@@ -14,7 +14,7 @@ does, its walls sink to the apartment's 4 ft cutaway height, the roof
 comes off, and a hollow version with cream partition walls and carpet
 takes its place, the same trick that makes the apartment readable.
 */import * as THREE from 'three';
-import { pencil, addLights, followSun, LABEL_FONT } from './pencil.js';
+import { pencil, addLights, followSun, makeMarker, LABEL_FONT } from './pencil.js';
 import { createBatch } from './batch.js';
 import { createRav4, drawParkedCar } from './car.js';
 import * as LOT from './home_lot.js';
@@ -50,7 +50,8 @@ const CAR_KINDS = ['sedan', 'suv', 'hatch', 'sedan', 'suv', 'sedan'];
 
 const CUT_H = 4;          // matches the apartment's cutaway walls
 const WALK_H = 0.25;      // sidewalks and walks are a step up from the grass
-const RUN = 13;           // ft/s on foot outside (a jog; the apartment walks at 6.5)
+const WALK_SPEED = 9;     // ft/s on foot outside (a brisk walk; the apartment is 6.5)
+const RUN_SPEED = 20;     // with run on (R / the Run button): a sprint
 
 // small deterministic PRNG so the woods grow the same way every load
 function rng(seed) {
@@ -541,6 +542,15 @@ export function buildOutside() {
 
   scene.add(b.build());
 
+  // a speech-bubble sticker over the RAV4 so it's easy to pick out of the lot;
+  // drawn in the un-inked overlay like the apartment's room labels, through walls
+  const overlay = new THREE.Scene();
+  const marker = makeMarker('MY RAV4');
+  const markerBase = new THREE.Vector3().copy(rav4.group.position).setY(7.2);
+  marker.position.copy(markerBase);
+  overlay.add(marker);
+  let markerT = 0;
+
   // standing height: sidewalks and walks are a step up
   function heightAt(x, z) {
     for (const r of LOT.WALKS) if (inRect(x, z, r)) return WALK_H;
@@ -570,6 +580,8 @@ export function buildOutside() {
   function update(dt, camera, player) {
     const { x, z, y } = player.state;
     followSun(sun, x, z);
+    markerT += dt;
+    marker.position.y = markerBase.y + Math.sin(markerT * 2.6) * 0.35;
     chest.set(x, y + 3.4, z);
     head.set(x, y + 6.2, z);
     for (const c of cuttables) {
@@ -588,18 +600,19 @@ export function buildOutside() {
 
   return {
     scene,
-    overlay: null,
+    overlay,
     colliders,
     bounds: LOT.BOUNDS,
     interactables: [
       { id: 'home-door', label: 'Go inside', x: 37.5, z: 63.9, r: 2.4, go: 'apartment' },
     ],
     entry: LOT.ENTRY,
-    speed: RUN,
+    speed: WALK_SPEED,
+    runSpeed: RUN_SPEED,
     heightAt,
     update,
     rav4,
-    view: { off: [0, 38, 36], lookY: 3, near: 0.5, far: 900, ink: [200, 520], widen: true },
+    view: { off: [0, 27, 25], lookY: 3, near: 0.5, far: 900, ink: [200, 520], widen: true },
     caption: 'Home · parking lot',
   };
 }

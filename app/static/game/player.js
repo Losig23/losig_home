@@ -5,9 +5,9 @@ Liverpool home jersey (M.SALAH 11), black jeans, white sneakers. Two-segment arm
 the code-driven walk cycle knees and elbows. Circle-vs-AABB collision,
 axis-separated so you slide along walls. Local +Z is forward.
 
-Each area hands update() its own colliders, walkable bounds, top speed and
-ground height (outside: a step up onto sidewalks). Past a brisk walk the
-cycle blends into a run: longer stride, bent arms, a forward lean.
+Each area hands update() its own colliders, walkable bounds, walk and run
+speeds and ground height (outside: a step up onto sidewalks). Past a brisk
+walk the cycle blends into a run: longer stride, bent arms, a forward lean.
 */import * as THREE from 'three';
 import { pencil } from './pencil.js';
 
@@ -195,9 +195,11 @@ export function createPlayer(scene) {
   }
 
   // move: {x, z} in world axes; length 1 is full speed (a touch stick can
-  // push less than that to walk slower). area: { colliders, bounds, speed, heightAt }
-  function update(dt, move, area) {
-    const speed = area.speed || WALK;
+  // push less than that to walk slower). area: { colliders, bounds, speed,
+  // runSpeed, heightAt }; running switches to the area's run speed.
+  function update(dt, move, area, running = false) {
+    const walk = area.speed || WALK;
+    const speed = running ? area.runSpeed || walk * 1.8 : walk;
     let dx = move.x, dz = move.z;
     const len = Math.hypot(dx, dz);
     state.moving = len > 0;
@@ -214,7 +216,7 @@ export function createPlayer(scene) {
       state.walkT += dt * 11 * (v <= 1 ? v : 1 + (v - 1) * 0.45);
     }
     // ease the run blend so the gait doesn't snap when a thumb wavers
-    const runTarget = state.moving ? Math.min(1, Math.max(0, (speed * pace - 8) / 4)) : 0;
+    const runTarget = state.moving ? Math.min(1, Math.max(0, (speed * pace - 9.5) / 5)) : 0;
     state.run += (runTarget - state.run) * Math.min(1, dt * 8);
     // step up/down onto raised ground (sidewalks) quickly but not instantly
     const groundY = area.heightAt ? area.heightAt(state.x, state.z) : 0;

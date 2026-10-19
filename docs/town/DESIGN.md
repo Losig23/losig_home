@@ -87,7 +87,8 @@ read its origin from an untracked local setting and strip `name` tags.
     rises, lateral grip and a handbrake drift.
   - Poles and signs break above about 8 mph. Sidewalks don't collide.
 - **Cameras:**
-  - On foot: the follow camera, plus yaw rotation in Phase 2.
+  - On foot: the follow camera, closer outdoors (27 ft up, 25 back), plus
+    yaw rotation in Phase 2.
   - Chase: a spring follow whose FOV widens with speed, and which pulls in
     off walls.
   - Cockpit: a modelled toon dash.
@@ -111,8 +112,11 @@ read its origin from an untracked local setting and strip `name` tags.
    - The home lot measured from OSM plus NAIP: both buildings, stalls,
      spur, driveway, street frontage, sidewalks, trees, lights, parked
      cars, and the RAV4 as a solid prop.
-   - Outdoor running, the dollhouse cutaway, the following sun, the OSM
-     credit and a privacy test.
+   - Outdoors Ani walks at 9 ft/s; **R** (or the Run sticker on touch)
+     toggles a 20 ft/s sprint, also 11 ft/s in the apartment.
+   - A "MY RAV4" speech-bubble marker floats over the car.
+   - The dollhouse cutaway, the following sun, the OSM credit and a
+     privacy test.
 2. **A drivable RAV4**: get in and out, arcade handling, chase and cockpit
    cameras, touch pedals, and collisions in the lot and a few blocks of
    street.

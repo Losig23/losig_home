@@ -111,3 +111,54 @@ export function makeLabel(text) {
   sp.renderOrder = 20;
   return sp;
 }
+
+
+/**
+ * Floating marker: the same sticker as the room labels, with a speech-bubble
+ * tail pointing down at the thing it marks (the interact prompt's shape).
+ * Sized in world feet (`height` = the pill's height).
+ */
+export function makeMarker(text, height = 2.4) {
+  const fs = 30, pad = 26, border = 5, pillH = 60, tail = 22;
+  const cv = document.createElement("canvas");
+  const cx = cv.getContext("2d");
+  cx.font = `800 ${fs}px ${LABEL_FONT}`;
+  const w = Math.ceil(cx.measureText(text).width + pad * 2);
+  cv.width = w + 8;
+  cv.height = pillH + tail + 10;
+  const c = cv.getContext("2d");
+  const bubble = (dx, dy) => {
+    const r = pillH / 2 - border, x0 = border / 2 + dx, y0 = border / 2 + dy, x1 = x0 + w - border, y1 = y0 + pillH - border;
+    const mid = (x0 + x1) / 2;
+    c.beginPath();
+    c.moveTo(x0 + r, y0);
+    c.arcTo(x1, y0, x1, y1, r);
+    c.arcTo(x1, y1, mid + 13, y1, r);
+    c.lineTo(mid + 13, y1);
+    c.lineTo(mid, y1 + tail);
+    c.lineTo(mid - 13, y1);
+    c.arcTo(x0, y1, x0, y0, r);
+    c.arcTo(x0, y0, x1, y0, r);
+    c.closePath();
+  };
+  c.fillStyle = "rgba(42,36,51,0.35)";
+  bubble(7, 8); c.fill();
+  c.fillStyle = "#fffdf6";
+  c.strokeStyle = "#2a2433";
+  c.lineWidth = border;
+  c.lineJoin = "round";
+  bubble(0, 0); c.fill(); c.stroke();
+  c.font = `800 ${fs}px ${LABEL_FONT}`;
+  c.fillStyle = "#2a2433";
+  c.textBaseline = "middle";
+  c.fillText(text, pad, pillH / 2 + 1);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  const s = height / pillH;
+  sp.scale.set(cv.width * s, cv.height * s, 1);
+  const tipY = border / 2 + pillH - border + tail;
+  sp.center.set(0.5, (cv.height - tipY) / cv.height); // anchor at the tail tip: position = the point it marks
+  sp.renderOrder = 20;
+  return sp;
+}

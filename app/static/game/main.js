@@ -23,6 +23,7 @@ const panelBody = document.getElementById("panelBody");
 const authPill = document.getElementById("authpill");
 const fadeEl = document.getElementById("fade");
 const placeEl = document.getElementById("place");
+const runBtn = document.getElementById("run");
 
 let renderer;
 try {
@@ -96,8 +97,19 @@ addEventListener("resize", () => {
 
 // ---- input ----
 const keys = {};
+let running = false; // R (or the Run sticker on touch) toggles the area's run speed
+function setRunning(on) {
+  running = on;
+  runBtn.classList.toggle("on", on);
+  runBtn.setAttribute("aria-pressed", String(on));
+}
+runBtn.addEventListener("click", () => setRunning(!running));
+
 addEventListener("keydown", (e) => {
+  // typing into a panel form isn't game input (an "e" in a title shouldn't close the panel)
+  if (e.target.closest?.("input, textarea, select")) return;
   const k = e.key.toLowerCase();
+  if (k === "r" && !e.repeat) setRunning(!running);
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
   keys[k === " " ? " " : k] = true;
   if (k === "e" && !panelOpen && nearest) use(nearest);
@@ -253,7 +265,7 @@ function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  if (!panelOpen && !travelling) player.update(dt, dir(), area);
+  if (!panelOpen && !travelling) player.update(dt, dir(), area, running);
 
   nearest = travelling ? null : findNearest();
   if (nearest && !panelOpen) {

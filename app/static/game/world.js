@@ -120,6 +120,7 @@ export function buildApartment() {
     bounds: BOUNDS,
     interactables: INTERACTABLES,
     entry: SPAWN,
+    runSpeed: 11, // walks at the player's default 6.5 ft/s
     // camera offset from the player, look-at height, far plane, ink fade band
     view: { off: [0, 14.5, 12], lookY: 2.6, far: 200, ink: [55, 110] },
     caption: 'Home · apartment',

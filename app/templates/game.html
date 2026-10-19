@@ -34,6 +34,15 @@
   #prompt .key { display: inline-block; background: var(--ink); color: var(--paper);
     border-radius: 7px; padding: 0 8px; margin-right: 8px; }
   @keyframes bob { 50% { transform: translateX(-50%) translateY(-4px); } }
+  /* run toggle: R on a keyboard, this sticker on touch; inverted while running */
+  #run { bottom: 62px; right: 16px; font: inherit; font-size: .85rem; font-weight: 800; border-radius: 999px;
+    padding: 5px 14px 5px 6px; cursor: pointer; display: flex; align-items: center; gap: 7px;
+    -webkit-tap-highlight-color: transparent; }
+  #run .key { background: var(--ink); color: var(--paper); border-radius: 7px; padding: 0 7px; }
+  #run.on { background: var(--ink); color: var(--paper); }
+  #run.on .key { background: var(--paper); color: var(--ink); }
+  #run:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(42,36,51,.35); }
+  body.touch #run { padding: 10px 18px; font-size: 1rem; bottom: 64px; }
   /* interaction panel: paper drawer on the right */
   #panel { position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(400px, calc(100vw - 24px));
     z-index: 20; background: var(--paper); color: var(--ink); border: 3px solid var(--ink);
@@ -93,7 +102,8 @@
   body.touch #prompt { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   @media (max-width: 600px) { #title .sub, #help { display: none; }
     #authpill { top: auto; right: auto; bottom: 14px; left: 16px; }
-    #credit { left: auto; right: 12px; transform: none; } }
+    #credit { left: auto; right: 12px; transform: none; }
+    #prompt { bottom: 124px; } }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -102,10 +112,11 @@
 <body>
 <div id="scene"></div>
 
-<div class="hud" id="title"><b>losig_home</b><div class="sub">anime edition · walk around, press E on things</div></div>
+<div class="hud" id="title"><b>losig_home</b><div class="sub">walk around, press E on things</div></div>
 <div class="hud" id="authpill">…</div>
-<div class="hud" id="help"><span class="key-only">WASD / arrows — move · <b>E</b> — interact · <b>Esc</b> — close</span><span class="touch-only">drag anywhere — move · tap the bubble — interact</span></div>
+<div class="hud" id="help"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>Esc</b> — close</span><span class="touch-only">drag anywhere — move · tap the bubble — interact</span></div>
 <div class="hud" id="exit"><a href="/">← back to site</a></div>
+<button class="hud" id="run" type="button" aria-pressed="false"><span class="key key-only">R</span><span class="touch-only">🏃</span>run</button>
 <div class="hud" id="prompt" role="button"><span class="key"><span class="key-only">E</span><span class="touch-only">tap</span></span><span id="promptLabel"></span></div>
 <div id="stick" aria-hidden="true"><div class="knob"></div></div>
 <div class="hud" id="place" aria-live="polite"></div>
