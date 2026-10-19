@@ -15,15 +15,19 @@ numbers, street-corner names, town name or coordinates** go into anything
 committed (code, docs, PR text) or shown in the UI. Places are labeled
 Home / Work / Gym. Positions are feet from a local reference point.
 `tests/test_game.py::test_game_ships_no_real_addresses_or_coordinates`
-enforces this for the shipped game files. The Phase 3 bake script will
-read its origin from an untracked local setting and strip `name` tags.
+enforces this for the shipped game files, the baked town data and the
+bake script. The bake (`scripts/build_town.py`) reads the origin, bounds
+and data files from `instance/town/settings.json`, which is gitignored,
+reads only shapes and a few class tags from OSM (never names or
+addresses), and a test checks that the baked chunks hold nothing but
+numbers and a short list of class words.
 
 ## Data sources
 
 | Source | Used for | Ships? |
 |---|---|---|
 | OpenStreetMap (Overpass) | roads, sidewalks, POIs, rail, water, some buildings and poles | yes, ODbL: "© OpenStreetMap contributors" credit is shown outdoors; baked data stays ODbL |
-| Microsoft US Building Footprints | the ~95% of buildings OSM is missing | yes, ODbL (Phase 3) |
+| Microsoft Global ML Building Footprints (two zoom-9 tiles) | the ~95% of buildings OSM is missing | yes, ODbL: "buildings © Microsoft" is in the outdoor credit; `town/NOTICE.md` marks the baked data as an ODbL derivative |
 | USGS NAIP aerial imagery | measuring hand-built sites (the home lot) | geometry derived from it, yes (public domain); never used as a texture |
 | Google Maps satellite / Street View / directions | looking and route timings only | **no**: its terms forbid tracing or deriving data from it |
 
@@ -80,19 +84,51 @@ read its origin from an untracked local setting and strip `name` tags.
   outside the sun's shadow box, get culled. Things that change stay
   separate: cuttable buildings and trees, and the RAV4. Ani is baked into
   one mesh per moving part (`mergeMeshes`), 12 draw calls instead of ~130.
-- **Ground layers:** flat ground (grass, fields, drives, streets, lots,
-  paint) is built as separate meshes with stepped polygon offsets
-  (`groundLayer`). From the driver's seat, surfaces a fraction of a foot
-  apart would otherwise z-fight a few hundred feet out.
+- **Ground layers:** flat ground (grass, water, fields, drives, streets,
+  lots, paint) is one mesh per area or chunk whose vertices carry a
+  `layer`; the shader pushes deeper layers back by a fixed depth step
+  (`batch.js` GROUND). From the driver's seat, surfaces a fraction of a
+  foot apart would otherwise z-fight a few hundred feet out, and one mesh
+  is one draw call instead of five.
+- **Primitives:** boxes, flats, discs, cylinders, blobs and gable attics
+  are cached unit shapes copied and scaled, so building a street of houses
+  doesn't construct thousands of geometries.
 - **Scale:** true 1:1. The car is tuned instead: 0–60 mph in 4.5 s,
   0–100 in 8 s, top speed 160 mph (deliberately silly; it's a toy).
   Expected drives at a sensible pace are about 30 s to the gas station,
-  about 75–90 s to the gym, and about 90 s to work. The bake has a
-  `WORLD_SCALE` knob if that drags, and Phase 4 adds fast travel.
-- **Streaming (Phase 3):** an offline Python bake writes 600 ft chunks as
-  JSON. Chunks load in a ring around a look-ahead point (about 1,200 ft on
-  foot, 1,800 ft driving), one build per frame within about 4 ms, hidden
-  behind fog.
+  about 75–90 s to the gym, and about 90 s to work. Phase 4 adds fast
+  travel if that drags.
+- **The bake** (`scripts/build_town.py`, Python standard library + curl):
+  - One Overpass query for the town's bounds (roads, sidewalks, buildings,
+    land cover, water, rail, trees, stops, signals, lamps), cached in
+    `instance/town/cache/`.
+  - Footprints from the two Microsoft tiles that cover the town. OSM
+    buildings win; a footprint is dropped if OSM or a hand-measured
+    building already has it.
+  - Near-rectangles (about 90% of buildings) become boxes with gable,
+    low or flat roofs and real height where the data has one; odd shapes
+    extrude as flat-roofed blocks with storefront glass.
+  - Curbs are worked out offline (gaps at every crossing road and lot), as
+    are utility poles every ~180 ft along the bigger streets, stop signs
+    where a residential street meets one, signal masts at mapped signals,
+    and trees (mapped ones, woods filled on a grid, and some yard trees).
+  - The hand-built blocks are a hole: roads, land, trees and furniture
+    inside nearby.js's REGION are cut out exactly at its edge, so the
+    streets join seamlessly.
+  - Output: 1,008 chunks of 600 ft, 1.6 MB of JSON in total (11,947
+    buildings, 3,800 road pieces, 1,491 props).
+- **Streaming** (`chunks.js`): chunks load in a ring around a look-ahead
+  point (1,200 ft on foot; 1,800 ft driving, centered 1.5 s ahead of the
+  car), nearest first, and unload 500 ft beyond. Building is a generator
+  stepped within a ~4 ms budget per frame (worst measured frame 5.5 ms).
+  At 158 mph every chunk within 900 ft of the car was always built; the far
+  ring catches up behind the fog. Each chunk is three draw calls: static
+  scenery, layered ground, and its breakable props.
+- **Collision per chunk:** each chunk builds its own 40 ft grid; `collide.js`
+  `createWorld` queries the hand-built area plus whichever chunks a circle
+  (plus 150 ft of overhang) can touch. Odd-shaped buildings collide as
+  polygons. Each chunk also brings its sidewalk heights and a 4 ft
+  pavement raster for the grass drag.
 - **Physics** (`vehicle.js`): no engine; 2D arcade physics on a flat
   ground plane at a fixed 60 Hz, drawn interpolated between steps.
   - The car collides as three circles (r 3.05 ft, along its length)
@@ -111,7 +147,14 @@ read its origin from an untracked local setting and strip `name` tags.
     drivable but drags the car down to about 70 mph (a 4 ft pavement
     raster answers "is this road?").
   - Curbs and sidewalks don't collide; the body bumps up 3 in onto
-    sidewalks. Poles and signs will break above about 8 mph in Phase 3.
+    sidewalks.
+  - Breakables (`breakables.js`): utility poles, lot lights, stop signs,
+    the bus stop and signal masts. Hit one above 8 mph and the car loses
+    15% of its speed while the prop's vertices collapse out of its merged
+    mesh and a copy topples from the base the way you were going (light
+    signs fly off spinning). Pieces lie there 20 s, then shrink away;
+    knocked props stay down for the visit. Slower than 8 mph they're
+    solid.
 - **Cameras:** every camera writes a wanted pose each frame and `main.js`
   blends any change (0.75 s getting in, 0.6 s getting out, 0.4 s toggling).
   - On foot: the follow camera, closer outdoors (27 ft up, 25 back),
@@ -134,15 +177,20 @@ read its origin from an untracked local setting and strip `name` tags.
   the left 62% of the screen; Gas, Brake/Reverse and Drift stickers on the
   right, each tracking its own finger so any combination can be held; the
   camera and Get out chips at the top right, the speedometer top left.
-- **The drivable map** (`nearby.js`, built by `town.js`): the cross street
-  from the stadium to the signalled corner (about 3,250 ft), the avenue
-  north past the church grounds and south around its bend, and the side
-  streets between, out to a 260 ft fog bank. Roads and sidewalks are
-  OSM centerlines with names dropped; about 55 buildings, the lots,
-  fields, tree stands, the stadium and the ball diamond are measured off
-  NAIP. Houses on the side streets southwest of the creek are
-  placeholders laid along the streets until Phase 3's footprints.
-- **Mobile budget** (measured in Phase 2):
+- **The hand-built blocks** (`nearby.js`, built by `town.js`): the cross
+  street from the stadium to the signalled corner (about 3,250 ft), the
+  avenue north past the church grounds and south around its bend, and the
+  side streets between. Roads and sidewalks are OSM centerlines with
+  names dropped; about 55 buildings, the lots, fields, tree stands, the
+  stadium and the ball diamond are measured off NAIP. Since Phase 3 the
+  houses between them are real footprints from the bake, and the town
+  continues past every edge.
+- **The edge of town:** the drivable map is the baked bounds (about
+  19,000 × 20,000 ft). A fog bank closes in over the last 400 ft and the
+  car bogs down instead of hitting an invisible wall.
+- **Mobile budget** (measured in Phase 2; Phase 3 in town: 35–38 draw
+  calls and 64–147k triangles in the color pass, about 10 calls and 46k
+  in the shadow pass):
   - At most 150 draw calls per pass. Driving views run 26–58 in the color
     pass and about 20 in the shadow pass; the whole map from above is
     about 145.
@@ -178,8 +226,14 @@ read its origin from an untracked local setting and strip `name` tags.
    - A few blocks of the avenue and cross street to drive, with a fog bank
      at the edges.
    - Ani merged to 12 meshes; outdoor run raised to 30 ft/s (about 20 mph).
-3. **The whole town**: bake script, chunk streaming, buildings, trees and
-   poles, spatial-hash collision, and breakable props.
+3. **The whole town**: this PR too.
+   - The bake script and 1,008 baked chunks: roads, curbs, sidewalks,
+     land, water, rail, 11,947 buildings, trees, poles and signs.
+   - Streaming around a look-ahead point within a per-frame budget.
+   - Collision per chunk, polygon buildings, and breakable poles and signs.
+   - Real footprints replace the placeholder houses; the fog bank moves to
+     the edge of town.
+   - Storefront glass on shops, STOP lettering in block strokes.
 4. **Places and polish**: Work, gym, gas stations and groceries; minimap,
    waypoints and GPS route; arrival panels; fast travel; speedometer;
    performance tuning.
@@ -202,3 +256,10 @@ read its origin from an untracked local setting and strip `name` tags.
 | ![Chase cam, mid-drift](phase2-drift.jpg) | ![Phone, portrait, driving](phase2-phone.jpg) |
 
 ![The drivable blocks from above (debug camera, same renderer)](phase2-overview.jpg)
+
+## Phase 3 screenshots
+
+| | |
+|---|---|
+| ![A residential street of real footprints](phase3-street.jpg) | ![Downtown storefronts from the cockpit](phase3-downtown.jpg) |
+| ![A utility pole knocked over](phase3-pole.jpg) | ![A stop sign](phase3-stop.jpg) |
