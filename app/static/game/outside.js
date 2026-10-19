@@ -15,19 +15,22 @@ comes off, and a hollow version with cream partition walls and carpet
 takes its place, the same trick that makes the apartment readable.
 */import * as THREE from 'three';
 import { pencil, addLights, followSun, makeMarker, LABEL_FONT } from './pencil.js';
-import { createBatch } from './batch.js';
+import { createBatch, groundLayer } from './batch.js';
+import { rng, prism, distToLine, inRect, drawTree, drawUtilityPole, TRUNK } from './scenery.js';
 import { createRav4, drawParkedCar } from './car.js';
+import { createSolids } from './collide.js';
+import { createVehicle } from './vehicle.js';
+import { buildTown } from './town.js';
 import * as LOT from './home_lot.js';
+import * as NEAR from './nearby.js';
 
 const SKY = 0xdde9ec;            // same haze as the apartment
 const GRASS = 0xa9c98b;
-const ASPHALT = 0x7d8188;
 const LOT_ASPHALT = 0x8f9399;
 const CONCRETE = 0xbcb8b0;
 const WALK = 0xdcd8cf;
 const CURB = 0xe6e2d9;
 const PAINT = 0xf4f1ea;
-const YELLOW = 0xe3b04b;
 const SIDING = 0xa7b6c4;
 const TRIM = 0xf4f2ec;
 const ROOF = 0x7f6a5d;
@@ -39,10 +42,7 @@ const RAIL = 0x5e5650;           // apartment balcony rail
 const WALL_C = 0xfbf5e6;         // apartment interior walls (for the cutaway)
 const CARPET = 0xe6c99a;         // apartment floor
 const HALL = 0xcfd4d6;           // apartment tile
-const TRUNK = 0x6b4a2f;
-const LEAVES = [0x4c8f45, 0x3f7e3a, 0x5f9e4f, 0x56994a];
 const POLE = 0x5e5a55;
-const WOOD_POLE = 0x7a5a3c;
 const LENS = 0xfff6d8;
 // no silver: the only silver car in the lot is yours
 const CAR_COLORS = [0xf2f0eb, 0x232326, 0x8c2c2d, 0x2b4e91, 0xcdbb98, 0x4d5156, 0x355e44, 0x5a3622];
@@ -51,79 +51,10 @@ const CAR_KINDS = ['sedan', 'suv', 'hatch', 'sedan', 'suv', 'sedan'];
 const CUT_H = 4;          // matches the apartment's cutaway walls
 const WALK_H = 0.25;      // sidewalks and walks are a step up from the grass
 const WALK_SPEED = 9;     // ft/s on foot outside (a brisk walk; the apartment is 6.5)
-const RUN_SPEED = 20;     // with run on (R / the Run button): a sprint
-
-// small deterministic PRNG so the woods grow the same way every load
-function rng(seed) {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// a triangle/polygon extruded along +z by `depth` (roof attics, cross gables)
-function prism(points, depth) {
-  const shape = new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x, y)));
-  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
-}
-
-// polyline offset sideways by d (positive = to the right of travel, looking down +y)
-function offsetLine(pts, d) {
-  return pts.map((p, i) => {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
-    const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz) || 1;
-    return [p[0] - (dz / len) * d, p[1] + (dx / len) * d];
-  });
-}
-
-function distToLine(x, z, pts) {
-  let best = Infinity;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [x1, z1] = pts[i], [x2, z2] = pts[i + 1];
-    const dx = x2 - x1, dz = z2 - z1;
-    const t = Math.max(0, Math.min(1, ((x - x1) * dx + (z - z1) * dz) / (dx * dx + dz * dz)));
-    best = Math.min(best, Math.hypot(x - x1 - t * dx, z - z1 - t * dz));
-  }
-  return best;
-}
-
-const inRect = (x, z, [x1, z1, x2, z2], pad = 0) =>
-  x >= x1 - pad && x <= x2 + pad && z >= z1 - pad && z <= z2 + pad;
+const RUN_SPEED = 30;     // with run on (R / the Run button): a flat-out sprint to the car
 
 
 // ---- ground: streets, curbs, sidewalks, lot ----
-
-function drawStreets(b) {
-  // driveway mouths break the curb
-  const gaps = [LOT.PAVING[2], ...LOT.NEIGHBOR_LOTS];
-  for (const s of LOT.STREETS) {
-    b.ribbon(s.pts, s.w, 0.02, ASPHALT);
-    if (s.yellow) {
-      for (const d of [-0.45, 0.45]) b.ribbon(offsetLine(s.pts, d), 0.32, 0.05, YELLOW, false);
-    }
-    if (!s.curbs) continue;
-    for (const side of [-1, 1]) {
-      const line = offsetLine(s.pts, side * (s.w / 2 + 0.3));
-      for (let i = 0; i < line.length - 1; i++) {
-        const [x1, z1] = line[i], [x2, z2] = line[i + 1];
-        const len = Math.hypot(x2 - x1, z2 - z1);
-        const n = Math.ceil(len / 8);
-        for (let k = 0; k < n; k++) {
-          const t = (k + 0.5) / n;
-          const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
-          // no curb across driveways or where another street crosses
-          if (gaps.some((r) => inRect(cx, cz, r, 2))) continue;
-          if (LOT.STREETS.some((o) => o !== s && distToLine(cx, cz, o.pts) < o.w / 2 + 2)) continue;
-          b.geo(new THREE.BoxGeometry(0.6, 0.45, len / n + 0.05), CURB, cx, 0.225, cz, Math.atan2(x2 - x1, z2 - z1));
-        }
-      }
-    }
-  }
-  // stop bar in the avenue's northbound lane, before the cross street
-  b.flat(-162, 0.05, -201, 13, 1.4, PAINT);
-}
 
 function drawWalks(b) {
   for (const s of LOT.SIDEWALKS) {
@@ -151,9 +82,11 @@ function curbLine(b, x1, z1, x2, z2, gaps = []) {
   }
 }
 
-function drawLot(b) {
-  for (const [x1, z1, x2, z2] of LOT.PAVING) b.box((x1 + x2) / 2, 0, (z1 + z2) / 2, x2 - x1, 0.05, z2 - z1, CONCRETE);
-  for (const [x1, z1, x2, z2] of LOT.NEIGHBOR_LOTS) b.box((x1 + x2) / 2, 0, (z1 + z2) / 2, x2 - x1, 0.04, z2 - z1, LOT_ASPHALT);
+function drawLot(b, ground) {
+  for (const [x1, z1, x2, z2] of LOT.PAVING) ground.lots.flat((x1 + x2) / 2, 0.05, (z1 + z2) / 2, x2 - x1, z2 - z1, CONCRETE);
+  for (const [x1, z1, x2, z2] of LOT.NEIGHBOR_LOTS) ground.drives.flat((x1 + x2) / 2, 0.04, (z1 + z2) / 2, x2 - x1, z2 - z1, LOT_ASPHALT);
+  // stop bar in the avenue's northbound lane, before the cross street
+  ground.paint.flat(-162, 0.06, -201, 13, 1.4, PAINT);
 
   // curbs ring the lot; walks and the driveway come through gaps
   curbLine(b, -102, -23.25, 103, -23.25, [[-99, -94], [33, 38]]);
@@ -167,8 +100,8 @@ function drawLot(b) {
   for (const r of LOT.STALL_ROWS) {
     const [a0, a1] = r.at, mid = (a0 + a1) / 2, len = a1 - a0;
     for (let u = r.from; u <= r.to + 0.01; u += 9) {
-      if (r.axis === 'x') b.flat(u, 0.08, mid, 0.4, len, PAINT);
-      else b.flat(mid, 0.08, u, len, 0.4, PAINT);
+      if (r.axis === 'x') ground.paint.flat(u, 0.08, mid, 0.4, len, PAINT);
+      else ground.paint.flat(mid, 0.08, u, len, 0.4, PAINT);
     }
   }
 }
@@ -369,20 +302,6 @@ function drawNeighbor(b, n) {
 
 // ---- trees and street furniture ----
 
-function drawTree(b, x, z, R, rand) {
-  const trunkH = 5 + R * 0.3;
-  b.cyl(x, 0, z, 0.75, trunkH + R * 0.5, TRUNK, 8, 0.45);
-  const cy = trunkH + R * 0.7;
-  b.blob(x, cy, z, R * 0.7, LEAVES[Math.floor(rand() * LEAVES.length)], 0.85);
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + rand() * 1.2;
-    b.blob(x + Math.cos(a) * R * 0.48, cy + (rand() - 0.35) * R * 0.4, z + Math.sin(a) * R * 0.48,
-      R * (0.42 + rand() * 0.14), LEAVES[Math.floor(rand() * LEAVES.length)], 0.85);
-  }
-  b.blob(x, cy + R * 0.45, z, R * 0.42, LEAVES[0], 0.85);
-  return cy + R * 0.45 + R * 0.42 * 0.85; // top of the crown
-}
-
 function drawLotLight(b, x, z) {
   // arm reaches over the pavement: west from the spur's east edge, else toward the aisle
   const tx = x > 148 ? x - 10 : x, tz = x > 148 ? z : 11.5;
@@ -392,16 +311,6 @@ function drawLotLight(b, x, z) {
   b.box(x + ax * 1.5, 19.1, z + az * 1.5, 0.3, 0.3, 3, POLE, ry);
   b.box(x + ax * 3.2, 18.7, z + az * 3.2, 1.0, 0.45, 1.8, 0x3a3d40, ry);
   b.box(x + ax * 3.2, 18.62, z + az * 3.2, 0.8, 0.08, 1.5, LENS, ry);
-}
-
-function drawUtilityPole(b, x, z) {
-  b.cyl(x, 0, z, 0.5, 31, WOOD_POLE, 8, 0.38);
-  b.box(x, 28.4, z, 8, 0.45, 0.45, WOOD_POLE);
-  for (const dx of [-3.4, 0, 3.4]) b.cyl(x + dx, 28.85, z, 0.16, 0.7, 0x9fb7a8, 6);
-  // cobra-head street light out over the cross street (north of the pole)
-  b.box(x, 24.4, z - 3.6, 0.25, 0.25, 7.2, 0x8a8f94);
-  b.box(x, 24.0, z - 7.8, 1.0, 0.5, 2.1, 0x8a8f94);
-  b.box(x, 23.94, z - 7.8, 0.75, 0.08, 1.6, LENS);
 }
 
 function stopSign(x, z, face) {
@@ -447,21 +356,25 @@ export function buildOutside() {
   const touch = matchMedia('(pointer: coarse)').matches;
   const sun = addLights(scene, { x: LOT.ENTRY.x, z: LOT.ENTRY.z, extent: 95, far: 320, reach: 4, mapSize: touch ? 1024 : 2048 });
 
-  // pushed back in depth so roads, lots and paint laid just above it never z-fight
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200),
-    pencil(GRASS, { polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
+  // the grass runs on into the fog past the map; it's the deepest ground layer,
+  // so fields, drives, streets, lots and paint (each a layer up) never z-fight
+  const R = NEAR.REGION;
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(R.x2 - R.x1 + 4000, R.z2 - R.z1 + 4000), pencil(GRASS, {
+    polygonOffset: true, polygonOffsetFactor: 10, polygonOffsetUnits: 10 }));
+  grass.rotation.x = -Math.PI / 2;
+  grass.position.set((R.x1 + R.x2) / 2, 0, (R.z1 + R.z2) / 2);
+  grass.receiveShadow = true;
+  scene.add(grass);
+  const ground = { landcover: createBatch(), drives: createBatch(), streets: createBatch(), lots: createBatch(), paint: createBatch() };
 
   const colliders = [];
   const cuttables = [];
   const b = createBatch();
   const rand = rng(23);
 
-  drawStreets(b);
   drawWalks(b);
-  drawLot(b);
+  drawLot(b, ground);
+  const town = buildTown({ scene, b, ground, colliders, cuttables, cutH: CUT_H });
 
   for (const bd of LOT.BUILDINGS) {
     const built = buildBuilding(bd);
@@ -530,32 +443,48 @@ export function buildOutside() {
       ci++;
     }
   }
+  // the RAV4 moves, so it isn't a static collider: its three body circles
+  // join the grid's moving solids while it's parked (Ani walks around it)
   const rav4 = createRav4();
-  {
-    const { x, z, heading } = stallSpot(LOT.RAV4_SPOT.row, LOT.RAV4_SPOT.stall);
-    rav4.group.position.set(x, 0, z);
-    rav4.group.rotation.y = heading;
-    rav4.group.traverse((m) => { if (m.isMesh && m.geometry.type !== 'PlaneGeometry') m.castShadow = true; });
-    scene.add(rav4.group);
-    colliders.push(carBox(x, z, heading, rav4.spec));
-  }
+  const spot = stallSpot(LOT.RAV4_SPOT.row, LOT.RAV4_SPOT.stall);
+  const vehicle = createVehicle({ x: spot.x, z: spot.z, heading: spot.heading });
+  rav4.group.position.set(spot.x, 0, spot.z);
+  rav4.group.rotation.y = spot.heading;
+  rav4.group.traverse((m) => {
+    if (m.isMesh && m.geometry.type !== 'PlaneGeometry' && !rav4.cockpit.group.getObjectById(m.id)) m.castShadow = true;
+  });
+  scene.add(rav4.group);
+  const car = { rav4, vehicle, parked: true };
 
-  scene.add(b.build());
+  // static scenery in 400 ft tiles so off-screen tiles (and ones outside the
+  // sun's shadow box) are culled; flat ground in its polygon-offset layers
+  scene.add(b.build({ tile: 400 }));
+  [ground.paint, ground.lots, ground.streets, ground.drives, ground.landcover].forEach((gb, layer) => {
+    const m = gb.build({ castShadow: false, layer });
+    if (m) scene.add(m);
+  });
 
   // a speech-bubble sticker over the RAV4 so it's easy to pick out of the lot;
   // drawn in the un-inked overlay like the apartment's room labels, through walls
   const overlay = new THREE.Scene();
   const marker = makeMarker('MY RAV4');
-  const markerBase = new THREE.Vector3().copy(rav4.group.position).setY(7.2);
-  marker.position.copy(markerBase);
+  marker.position.copy(rav4.group.position).setY(7.2);
   overlay.add(marker);
   let markerT = 0;
 
   // standing height: sidewalks and walks are a step up
+  const sidewalks = [...LOT.SIDEWALKS, ...NEAR.SIDEWALKS];
   function heightAt(x, z) {
     for (const r of LOT.WALKS) if (inRect(x, z, r)) return WALK_H;
-    for (const s of LOT.SIDEWALKS) if (distToLine(x, z, s.pts) <= s.w / 2) return WALK_H;
+    for (const s of sidewalks) if (distToLine(x, z, s.pts) <= s.w / 2) return WALK_H;
     return 0;
+  }
+
+  // past the edge of the map a fog bank closes in: 0 inside, 1 at its far side
+  function bankAt(x, z) {
+    const out = Math.max(R.x1 - x, x - R.x2, R.z1 - z, z - R.z2);
+    const k = Math.min(1, Math.max(0, (out + 80) / (NEAR.MARGIN + 80)));
+    return k * k * (3 - 2 * k);
   }
 
   // ---- cutaway: anything between the camera and the player sinks to 4 ft ----
@@ -577,24 +506,42 @@ export function buildOutside() {
     return true;
   }
 
-  function update(dt, camera, player) {
+  const solids = createSolids(colliders);
+  const world = { solids, surface: town.paved, bounds: { ...R, margin: NEAR.MARGIN } };
+  const door = { id: 'rav4', label: 'Get in', x: 0, z: 0, r: 3.4, drive: true };
+  const circles = [];
+
+  function update(dt, camera, player, driving = false) {
     const { x, z, y } = player.state;
-    followSun(sun, x, z);
+    const s = vehicle.s;
+    if (driving) {
+      // shadows where the car is heading, not where it's been
+      followSun(sun, s.x + s.vx * 0.35, s.z + s.vz * 0.35);
+    } else {
+      followSun(sun, x, z);
+    }
+    // the parked car: Ani collides with it and gets in at the driver's door
+    solids.circles = car.parked ? vehicle.circles(circles) : [];
+    door.x = s.x + Math.cos(s.h) * (rav4.spec.w / 2 + 1.5) + Math.sin(s.h) * 0.6;
+    door.z = s.z - Math.sin(s.h) * (rav4.spec.w / 2 + 1.5) + Math.cos(s.h) * 0.6;
+    marker.visible = car.parked;
     markerT += dt;
-    marker.position.y = markerBase.y + Math.sin(markerT * 2.6) * 0.35;
+    marker.position.set(s.x, 7.2 + Math.sin(markerT * 2.6) * 0.35, s.z);
     chest.set(x, y + 3.4, z);
     head.set(x, y + 6.2, z);
     for (const c of cuttables) {
-      const hidden = blocks(c.box, camera.position, chest) || blocks(c.box, camera.position, head);
+      // driving cameras pull in instead of cutting buildings away
+      const hidden = !driving && (blocks(c.box, camera.position, chest) || blocks(c.box, camera.position, head));
       // hold the cut briefly so it doesn't flicker at the edge
       c.hold = hidden ? 0.35 : c.hold - dt;
       const target = c.hold > 0 ? 1 : 0;
       c.k = Math.max(0, Math.min(1, c.k + Math.sign(target - c.k) * dt * 5));
       const e = c.k * c.k * (3 - 2 * c.k);
-      c.full.visible = c.k < 1;
+      // buildings without a hollow version just stay squashed at 4 ft
+      c.full.visible = c.k < 1 || !c.cut;
       c.full.scale.y = 1 + (c.ratio - 1) * e;
       if (c.roof) c.roof.visible = c.k === 0;
-      c.cut.visible = c.k >= 1;
+      if (c.cut) c.cut.visible = c.k >= 1;
     }
   }
 
@@ -602,17 +549,24 @@ export function buildOutside() {
     scene,
     overlay,
     colliders,
-    bounds: LOT.BOUNDS,
+    solids,
+    world,
+    car,
+    // on foot you can wander a little way into the fog bank
+    bounds: { x1: R.x1 - 150, z1: R.z1 - 150, x2: R.x2 + 150, z2: R.z2 + 150 },
+    bankAt,
     interactables: [
       { id: 'home-door', label: 'Go inside', x: 37.5, z: 63.9, r: 2.4, go: 'apartment' },
+      door,
     ],
     entry: LOT.ENTRY,
     speed: WALK_SPEED,
     runSpeed: RUN_SPEED,
     heightAt,
     update,
-    rav4,
-    view: { off: [0, 27, 25], lookY: 3, near: 0.5, far: 900, ink: [200, 520], widen: true },
+    // on foot: the high follow camera; driving: long sightlines for 100+ mph
+    view: { off: [0, 27, 25], lookY: 3, near: 0.5, far: 900, ink: [200, 520], fog: [170, 560], widen: true },
+    driveView: { far: 2400, ink: [260, 950], fog: [420, 1600] },
     caption: 'Home · parking lot',
   };
 }

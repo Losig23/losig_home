@@ -23,21 +23,11 @@ Units are feet, same axes as apartment.js: x west -> east, z north -> south.
       │          └────────── door ●──────────┘   <- you come out here
 */
 
-// ---- streets and sidewalks: polylines [x, z], from OSM centerlines ----
-export const STREETS = [
-  // the cross street to the north: a wide collector with a double yellow line
-  { pts: [[-720, -230], [720, -230]], w: 42, yellow: true, curbs: true },
-  // the avenue out front: residential, runs north past the cross street and curves southeast below the lot
-  { pts: [[-205, -559], [-175, -400], [-171, -230], [-169, 10], [-168, 150], [-168, 215],
-          [-150, 273], [-106, 343], [-73, 382], [-34, 419], [41, 450], [121, 464], [302, 464]],
-    w: 28, curbs: true },
-];
-
+// ---- sidewalks along the lot's frontage: polylines [x, z], from OSM ----
+// (the streets themselves, and the sidewalks beyond the frontage, are in nearby.js)
 export const SIDEWALKS = [
   { pts: [[-142, -172], [-142, 151]], w: 5 },                    // east side of the avenue
   { pts: [[-142, -173], [146, -174]], w: 5 },                    // south side of the cross street
-  { pts: [[-202, -267], [-201, -331], [-204, -387]], w: 5 },     // west side of the avenue, north of the cross street
-  { pts: [[-202, -268], [-477, -269]], w: 5 },                   // north side of the cross street, west of the avenue
 ];
 
 // ---- the lot: concrete rectangles [x1, z1, x2, z2] ----
@@ -114,4 +104,3 @@ export const RAV4_SPOT = { row: 2, stall: 6 };
 
 // ---- coming and going ----
 export const ENTRY = { x: 37.5, z: 58.5, dirX: 0, dirZ: -1 };  // on the stoop, facing the lot
-export const BOUNDS = { x1: -420, z1: -320, x2: 158, z2: 128 };

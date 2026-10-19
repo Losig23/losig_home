@@ -43,7 +43,8 @@ def test_public_music_is_not_login_gated(anon_client, client):
 
 def test_game_static_modules_exist(anon_client):
     for mod in ("main.js", "apartment.js", "world.js", "player.js", "panels.js", "pencil.js", "ink.js",
-                "outside.js", "home_lot.js", "car.js", "batch.js"):
+                "outside.js", "home_lot.js", "car.js", "batch.js", "nearby.js", "town.js", "scenery.js",
+                "collide.js", "vehicle.js", "drive.js"):
         r = anon_client.get(f"/static/game/{mod}")
         assert r.status_code == 200, mod
         assert b"import" in r.data or b"export" in r.data, mod
