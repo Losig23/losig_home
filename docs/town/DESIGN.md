@@ -99,14 +99,18 @@ numbers only, and that the Places carry only the generic names.
 - **Ground layers:** flat ground (grass, water, fields, drives, streets,
   lots, paint) is one mesh per area or chunk whose vertices carry a
   `layer`; the shader pushes deeper layers back by a fixed depth step
-  (`batch.js` GROUND). From the driver's seat, surfaces a fraction of a
-  foot apart would otherwise z-fight a few hundred feet out, and one mesh
-  is one draw call instead of five.
+  (`batch.js` GROUND, 1e-5 of clip depth). From the driver's seat,
+  surfaces a fraction of a foot apart would otherwise z-fight a few
+  hundred feet out, and one mesh is one draw call instead of five. Keep
+  ground triangles to a few hundred feet: one huge quad loses the depth
+  fight on some GPUs (the Phase 4 grass flickered through the roads until
+  it was cut into ~500 ft squares and the step went up from 4e-6).
 - **Primitives:** boxes, flats, discs, cylinders, blobs and gable attics
   are cached unit shapes copied and scaled, so building a street of houses
   doesn't construct thousands of geometries.
-- **Scale:** true 1:1. The car is tuned instead: 0–60 mph in 4.5 s,
+- **Scale:** true 1:1. The RAV4 is tuned instead: 0–60 mph in 4.5 s,
   0–100 in 8 s, top speed 160 mph (deliberately silly; it's a toy).
+  The garage's vehicles each override a few of its numbers (below).
   Expected drives at a sensible pace are about 30 s to the gas station,
   about 75–90 s to the gym, and about 90 s to work; fast travel (Phase 4)
   skips them. Boost (Shift, or the sticker) lifts the top speed to
@@ -179,23 +183,63 @@ numbers only, and that the Places carry only the generic names.
     solid.
 - **Cameras:** every camera writes a wanted pose each frame and `main.js`
   blends any change (0.75 s getting in, 0.6 s getting out, 0.4 s toggling).
-  - On foot: the follow camera, closer outdoors (27 ft up, 25 back).
-    Outdoors it swings around Ani (drag the mouse, or a second finger on
-    touch) and walking turns with it; the apartment keeps its fixed angle.
-  - Cockpit (`drive.js`, the default): at the driver's eye, glancing a
-    little into turns, FOV widening slightly with speed. Phones in
-    portrait start in chase instead, because a portrait cockpit is mostly
-    headliner and dash.
+  `C` or the camera chip cycles three on foot outdoors and three driving.
+  - On foot, overhead: the follow camera, closer outdoors (27 ft up, 25
+    back). It swings around Ani (drag the mouse, or a second finger on
+    touch) and walking turns with it. The apartment only has this one, at
+    its fixed angle.
+  - On foot, third person: 11 ft behind Ani and 6 ft up on a lagging yaw,
+    pulled in off walls like the chase cam. First person: Ani's eyes
+    (Ani hidden). In both, walking works like driving: W/S forward and
+    back, A/D turn (the stick: up/down and sideways), a drag turns and
+    looks up and down, nothing gets cut away, and fog and ink reach
+    further (fog 260–950 ft).
+  - Cockpit (`drive.js`, the default driving camera): at the driver's eye,
+    glancing a little into turns, FOV widening slightly with speed. Phones
+    in portrait start in chase instead, because a portrait cockpit is
+    mostly headliner and dash. Each vehicle has its own eye; the dash
+    rides on its beltline.
   - Chase: trails on a lagging yaw (wider in drifts), 22 ft back and
-    7.5 ft up, backing off and widening its FOV from 58° to 74° with
-    speed. A wall between it and the car pulls it in, up and looking
-    further down the road, instead of the cutaway.
-  - `C` or the camera chip toggles.
-- **Getting in and out:** the driver's door is an interactable that
-  follows the car ("Get in": E or tap the bubble). Ani shrinks into the
-  seat. Get out (E or the chip) only works under 5 mph and puts Ani at the
-  driver's door, or the passenger side, behind or in front if that's
-  blocked. The parked car joins the collision grid as three moving circles.
+    7.5 ft up (each vehicle can set its own), backing off and widening its
+    FOV from 58° to 74° with speed. A wall between it and the car pulls it
+    in, up and looking further down the road, instead of the cutaway; odd
+    footprints are tested by their outline (a bounding box once put the
+    camera on a store's roof).
+  - High: the chase camera 1.6× further back and 2.4× higher, looking
+    further down the road.
+- **Getting in and out:** every vehicle's driver's door is an
+  interactable that follows it ("Get in · Ferrari", "Get on · Bike": E or
+  tap the bubble). Ani shrinks into the seat. Get out (E or the chip) only
+  works under 5 mph and puts Ani at the driver's door, or the passenger
+  side, behind or in front if that's blocked. Parked vehicles join the
+  collision grid as moving circles: Ani walks around them and the one
+  you're driving bounces off them. Fast travel takes the last vehicle you
+  drove.
+- **The garage** (`fleet.js`, parked in the south row's free stalls, nose
+  toward our building, and the bike on the grass by the door): toy
+  primitive versions, no logos, each with its tell (the Ferrari's red
+  wedge and side intakes, the BMW's kidney grille, the future car's
+  canopy, fin and cyan strips, the Jaguar's long hood, the Rolls-Royce's
+  upright barred grille and two-tone paint, the 911's round fender lamps,
+  the Cybertruck's steel wedge and light bars).
+
+  | Vehicle | 0–60 | Top (boost) | Notes |
+  |---|---|---|---|
+  | RAV4 | 4.5 s | 160 (205) mph | the hero, MY RAV4 marker |
+  | Ferrari | 2.9 s | 211 (240) | grippy, low seat |
+  | BMW | 3.8 s | 180 (210) | |
+  | Future supercar | 2.0 s | 260 (300) | widest grip |
+  | Bike | 2.8 s | 186 (205) | leans into turns, Ani rides it, two circles |
+  | Jaguar | 3.5 s | 186 (215) | |
+  | Rolls-Royce | 5.2 s | 155 (180) | 19 ft, heavy, soft |
+  | Porsche 911 | 3.0 s | 190 (220) | |
+  | Cybertruck | 2.6 s | 130 (160) | 18.6 ft, heavy, high seat |
+
+  `car.js` `createCar` builds any spec twice: driven (a chassis with the
+  body, cockpit and the bike's rider that leans, and wheels that spin and
+  steer) and parked (all of it merged into one mesh), so the lot with all
+  nine parked costs 33 draw calls in the color pass and 28 in the shadow
+  pass.
 - **Touch driving:** a floating steer stick (sideways only) that starts on
   the left 62% of the screen; Gas, Brake/Reverse, Drift and Boost stickers
   on the right, each tracking its own finger so any combination can be
@@ -285,7 +329,9 @@ numbers only, and that the Places carry only the generic names.
   counters after drawing the shadow map, so ink.js counts by hand.
 - **Mobile budget** (measured in Phase 2; Phase 3 in town: 35–38 draw
   calls and 64–147k triangles in the color pass, about 10 calls and 46k
-  in the shadow pass; Phase 4 with `?stats`: downtown driving 37–40 calls
+  in the shadow pass; Phase 4 with `?stats`: the home lot with the whole
+  garage parked 33 calls and 154k triangles, shadow 28 calls and 126k;
+  downtown driving 37–40 calls
   and 90–94k triangles in the color pass, 11 calls and 21k in the shadow
   pass; the home lot on foot 27 calls and 138k, shadow 20 calls and 120k.
   The route ribbon is one draw call, the pads and canopy merge into the
@@ -347,6 +393,11 @@ numbers only, and that the Places carry only the generic names.
      parking aisles, parking pads, a real gas canopy.
    - Optional extras, built: Boost (Shift or a sticker, 205 mph) and the
      on-foot camera swing.
+   - After play-testing: a garage of eight more drivable vehicles, a high
+     chase camera, third- and first-person cameras on foot, the grass
+     flicker fixed, the camera after fast travel fixed, and the guest gym
+     and meal panels reading the public week's real shape (with a retry
+     for a server that's waking up).
 5. **Life in town** (next): traffic and pedestrians on the street graph,
    signals that cycle, time of day with lights, and a way home from the
    lot to the apartment door.
@@ -387,3 +438,11 @@ numbers only, and that the Places carry only the generic names.
 | ![On foot with the camera swung, routed to Work](phase4-foot.jpg) | ![Phone, portrait, routed](phase4-phone.jpg) |
 
 ![Phone, landscape, boosting at 72 mph](phase4-phone-landscape.jpg)
+
+| | |
+|---|---|
+| ![The garage: Ferrari, BMW, Cybertruck and the bike](phase4-garage.jpg) | ![Future supercar, Jaguar, Rolls-Royce, 911](phase4-garage2.jpg) |
+| ![Cockpits: Cybertruck, BMW, Jaguar, Rolls-Royce](phase4-cockpits.jpg) | ![The bike leaning into a turn](phase4-bike.jpg) |
+| ![The high chase camera on a route](phase4-high-cam.jpg) | ![On foot, third person](phase4-third-person.jpg) |
+
+![On foot, first person](phase4-first-person.jpg)
