@@ -108,10 +108,71 @@ function startBlend(dur) {
   blend.fov = camera.fov;
 }
 
-// outdoors on foot the follow camera can swing around Ani (drag the mouse, or a
-// second finger on touch); the apartment keeps its fixed dollhouse angle
+// ---- on foot outdoors: three cameras, like the car's (C or the camera chip) ----
+// overhead: the high follow camera; walking is screen-relative, and it swings
+//   around Ani (drag the mouse, or a second finger on touch).
+// behind (third person) and eyes (first person): Ani walks the way the car
+//   drives, W/S forward and back and A/D turning (the stick: up/down, sideways),
+//   and a drag turns and looks up and down.
+// The apartment keeps its fixed dollhouse angle.
 const look = { yaw: 0 };
+const FOOT = ["overhead", "behind", "eyes"];
+const FOOT_LABEL = { overhead: "overhead", behind: "third person", eyes: "first person" };
+const foot = { mode: "overhead", h: 0, yaw: 0, pitch: 0 };
+const UP = THREE.Object3D.DEFAULT_UP;
+const _eu = new THREE.Euler(0, 0, 0, "YXZ");
+const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+const closeCam = () => areaName === "outside" && foot.mode !== "overhead";
+
+// a usable horizontal view on portrait phones, like the car's cameras
+function wideFov(v) {
+  const h = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(v) / 2) * camera.aspect), min = THREE.MathUtils.degToRad(64);
+  return h >= min ? v : Math.min(96, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(min / 2) / camera.aspect)));
+}
+
 function followPose(dt, snap = false) {
+  const st = player.state;
+  if (snap) foot.h = foot.yaw = Math.atan2(st.dirX, st.dirZ);
+  if (!closeCam()) return overheadPose(dt, snap);
+  if (foot.mode === "eyes") {
+    want.position.set(st.x + Math.sin(foot.h) * 0.4, st.y + 5.35, st.z + Math.cos(foot.h) * 0.4);
+    _eu.set(foot.pitch, foot.h + Math.PI, 0);
+    want.quaternion.setFromEuler(_eu);
+    want.fov = wideFov(70);
+    want.near = 0.2;
+    return;
+  }
+  // behind Ani on a lagging yaw, pulled in by walls like the chase cam
+  foot.yaw += wrapA(foot.h - foot.yaw) * (snap ? 1 : 1 - Math.exp(-6 * dt));
+  const sn = Math.sin(foot.yaw), cs = Math.cos(foot.yaw);
+  let dist = 11;
+  const t = area.world.solids.ray(st.x, st.z, st.x - sn * dist, st.z - cs * dist, 0.8);
+  if (t < 1) dist = Math.max(2.5, dist * t - 0.5);
+  camTarget.set(st.x - sn * dist, st.y + 6.2 + (11 - dist) * 0.2, st.z - cs * dist);
+  if (snap) followPos.copy(camTarget);
+  else followPos.lerp(camTarget, 1 - Math.pow(0.0005, dt));
+  want.position.copy(followPos);
+  lookAt.set(st.x + sn * 8, st.y + 4.4 + foot.pitch * 7, st.z + cs * 8);
+  _m.lookAt(followPos, lookAt, UP);
+  want.quaternion.setFromRotationMatrix(_m);
+  want.fov = wideFov(60);
+  want.near = 0.3;
+}
+
+function setFootLabel() {
+  driveUI.cam.querySelector(".label").textContent = FOOT_LABEL[FOOT[(FOOT.indexOf(foot.mode) + 1) % FOOT.length]];
+}
+
+function cycleFoot() {
+  foot.mode = FOOT[(FOOT.indexOf(foot.mode) + 1) % FOOT.length];
+  const st = player.state;
+  foot.h = foot.yaw = Math.atan2(st.dirX, st.dirZ);
+  foot.pitch = 0;
+  startBlend(0.4);
+  setFootLabel();
+}
+
+function overheadPose(dt, snap = false) {
   const { x, y, z } = player.state;
   const c = Math.cos(look.yaw), sn = Math.sin(look.yaw);
   camTarget.set(x + camOff.x * c + camOff.z * sn, y + camOff.y, z - camOff.x * sn + camOff.z * c);
@@ -156,7 +217,7 @@ function settleView() {
 }
 
 function updateView(dt, driving, snap = false) {
-  const v = driving && area.driveView ? area.driveView : area.view;
+  const v = driving && area.driveView ? area.driveView : closeCam() && area.nearView ? area.nearView : area.view;
   const k = snap ? 1 : 1 - Math.exp(-2.2 * dt);
   // past the edge of the map a fog bank closes in (outside.js says how deep you are)
   const at = driving ? area.driver.pose : player.state;
@@ -243,6 +304,7 @@ addEventListener("keydown", (e) => {
     if (k === "c") toggleCam();
     return;
   }
+  if (k === "c" && areaName === "outside") cycleFoot();
   if (k === "r") setRunning(!running);
   if (k === "e" && !panelOpen && nearest) use(nearest);
   else if (k === "e" && panelOpen) closePanel();
@@ -314,28 +376,49 @@ renderer.domElement.addEventListener("pointercancel", releaseStick);
 // the speech bubble doubles as the interact button on touch
 promptEl.addEventListener("click", () => { if (!panelOpen && nearest) use(nearest); });
 
-// screen directions (right, toward the camera) turned into the world by the camera's swing
+// what the keys or the stick ask for: x right, z toward the camera (back)
+const rawInput = () => {
+  const x = ((keys.d || keys.arrowright) ? 1 : 0) - ((keys.a || keys.arrowleft) ? 1 : 0);
+  const z = ((keys.s || keys.arrowdown) ? 1 : 0) - ((keys.w || keys.arrowup) ? 1 : 0);
+  return x || z ? { x, z } : { x: stick.x, z: stick.z };
+};
+
+// overhead: screen directions turned into the world by the camera's swing
 const dir = () => {
-  let x = ((keys.d || keys.arrowright) ? 1 : 0) - ((keys.a || keys.arrowleft) ? 1 : 0);
-  let z = ((keys.s || keys.arrowdown) ? 1 : 0) - ((keys.w || keys.arrowup) ? 1 : 0);
-  if (!x && !z) { x = stick.x; z = stick.z; }
+  const { x, z } = rawInput();
   const c = Math.cos(look.yaw), sn = Math.sin(look.yaw);
   return { x: x * c + z * sn, z: -x * sn + z * c };
 };
 
+// behind / eyes: sideways turns Ani, up and down walks forward and back
+function walkLikeACar(dt) {
+  const { x, z } = rawInput();
+  foot.h -= x * 2.4 * dt;
+  const fx = Math.sin(foot.h), fz = Math.cos(foot.h);
+  player.update(dt, { x: fx * -z, z: fz * -z }, area, running, { x: fx, z: fz });
+}
+
 // swinging the camera: a mouse drag, or a second finger while the first walks
-const swing = { id: null, x: 0 };
+const swing = { id: null, x: 0, y: 0 };
 renderer.domElement.addEventListener("pointerdown", (e) => {
   if (areaName !== "outside" || driving() || swing.id !== null) return;
   if (e.pointerType !== "mouse" && (stick.id === null || stick.id === e.pointerId)) return;
   swing.id = e.pointerId;
   swing.x = e.clientX;
+  swing.y = e.clientY;
   try { renderer.domElement.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
 });
 renderer.domElement.addEventListener("pointermove", (e) => {
   if (e.pointerId !== swing.id) return;
-  look.yaw -= (e.clientX - swing.x) * 0.006;
+  const dx = e.clientX - swing.x, dy = e.clientY - swing.y;
+  if (closeCam()) {
+    foot.h -= dx * 0.006;
+    foot.pitch = Math.max(-0.7, Math.min(0.6, foot.pitch - dy * 0.004));
+  } else {
+    look.yaw -= dx * 0.006;
+  }
   swing.x = e.clientX;
+  swing.y = e.clientY;
 });
 const endSwing = (e) => { if (e.pointerId === swing.id) swing.id = null; };
 renderer.domElement.addEventListener("pointerup", endSwing);
@@ -354,13 +437,18 @@ function getOut() {
   resetStick();
   followPose(0, true);
   startBlend(0.6);
+  setFootLabel();
 }
 
 function toggleCam() {
   area.driver.toggleCam();
   startBlend(0.4);
 }
-driveUI.cam.addEventListener("click", () => { if (driving()) toggleCam(); });
+driveUI.cam.addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  if (driving()) toggleCam();
+  else if (areaName === "outside") cycleFoot();
+});
 driveUI.out.addEventListener("click", () => { if (driving()) getOut(); });
 
 // ---- auth: one private probe; 401 means logged out ----
@@ -526,6 +614,7 @@ async function fastTravel(id) {
 const start = new URLSearchParams(location.search).get("start") === "outside" ? "outside" : "apartment";
 if (!areas[start]) areas[start] = await loaders[start]();
 enter(start);
+setFootLabel();
 
 // ---- dynamic resolution (phones, outdoors): hold ~50+ fps by trading pixels ----
 // Every 1.5 s the average frame rate decides: under 50 drops the pixel ratio a
@@ -593,7 +682,12 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const inCar = driving();
 
-  if (!panelOpen && !travelling && !inCar) player.update(dt, dir(), area, running);
+  if (!panelOpen && !travelling && !inCar) {
+    if (closeCam()) walkLikeACar(dt);
+    else player.update(dt, dir(), area, running);
+  }
+  // through Ani's eyes, Ani isn't in the picture (while driving, drive.js decides)
+  if (!inCar) player.group.visible = !(closeCam() && foot.mode === "eyes");
   area.driver?.update(dt);
 
   nearest = travelling || inCar ? null : findNearest();
@@ -609,7 +703,7 @@ function tick() {
   applyCamera(dt);
   updateView(dt, inCar);
 
-  area.update?.(dt, camera, player, inCar);
+  area.update?.(dt, camera, player, inCar, !inCar && !closeCam());
   if (area.guide && !travelling) area.guide.update(dt, player);
 
   ink.render(area.scene, area.overlay, clock.elapsedTime, stats);

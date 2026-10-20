@@ -573,6 +573,8 @@ export function buildOutside() {
     // on foot: the high follow camera; driving: long sightlines for 100+ mph
     view: { off: [0, 27, 25], lookY: 3, near: 0.5, far: 900, ink: [200, 520], fog: [170, 560], widen: true },
     driveView: { far: 2400, ink: [260, 950], fog: [420, 1600] },
+    // on foot behind Ani or through Ani's eyes: low cameras that see to the horizon
+    nearView: { far: 1600, ink: [200, 650], fog: [260, 950] },
     caption: 'Home · parking lot',
   };
   return area;

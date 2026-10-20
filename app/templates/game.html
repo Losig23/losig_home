@@ -122,7 +122,8 @@
   #gear:empty { display: none; }
   /* camera toggle + get out: chips at the top right */
   #drivetop { position: fixed; z-index: 10; top: 58px; right: 16px; gap: 10px; }
-  body[data-mode="drive"] #drivetop { display: flex; }
+  body[data-mode="drive"] #drivetop, body[data-area="outside"] #drivetop { display: flex; }
+  body:not([data-mode="drive"]) #drivetop #outBtn { display: none; }   /* on foot it's just the camera chip */
   #drivetop button { position: static; font: inherit; font-size: .85rem; font-weight: 800; border-radius: 999px;
     padding: 5px 14px 5px 6px; cursor: pointer; display: flex; align-items: center; gap: 7px; white-space: nowrap;
     -webkit-tap-highlight-color: transparent; }
@@ -155,6 +156,7 @@
   body.touch[data-mode="drive"] #authpill { display: none; }
   body.touch[data-mode="drive"] #speedo { top: 14px; left: 16px; bottom: auto; right: auto; width: 92px; height: 92px; }
   body.touch[data-mode="drive"] #drivetop { top: 14px; }
+  body.touch:not([data-mode="drive"]) #drivetop { top: 150px; }          /* under the minimap */
   body.touch #drivetop button { padding: 9px 16px; font-size: .95rem; }
   body.touch #credit { top: auto; bottom: 2px; left: 50%; right: auto; transform: translateX(-50%); font-size: .6rem; }
   body.touch #outBtn.off .hint { display: none; }   /* grayed out says enough on a phone */
@@ -192,7 +194,8 @@
   #turn.soon { background: var(--blue); color: #fff; }
   body.touch #map { width: 118px; height: 118px; left: auto; right: 16px; bottom: auto; top: 14px; }
   body.touch[data-mode="drive"] #map { top: 70px; }
-  @media (min-width: 601px) { body.touch:not([data-mode="drive"]) #map { top: 58px; } }   /* under the login pill */
+  @media (min-width: 601px) { body.touch:not([data-mode="drive"]) #map { top: 58px; }   /* under the login pill */
+    body.touch:not([data-mode="drive"]) #drivetop { top: 194px; } }
   /* landscape phones: between the chips and the pedals, lined up over Drift */
   @media (orientation: landscape) and (max-height: 500px) {
     body.touch[data-mode="drive"] #map { width: 92px; height: 92px; top: 62px; } }
@@ -230,7 +233,7 @@
 
 <div class="hud" id="title"><b>losig_home</b><div class="sub">walk around, press E on things</div></div>
 <div class="hud" id="authpill">…</div>
-<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>Esc</b> — close<span class="out-only"> · drag — turn camera · <b>P</b> — places</span></span><span class="touch-only">drag anywhere — move · tap the bubble — interact<span class="out-only"> · second finger — turn camera · tap the map — places</span></span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>P</b> — places · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
+<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>Esc</b> — close<span class="out-only"> · drag — look · <b>C</b> — camera · <b>P</b> — places</span></span><span class="touch-only">drag anywhere — move · tap the bubble — interact<span class="out-only"> · second finger — turn camera · tap the map — places</span></span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>P</b> — places · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
 <div class="hud" id="exit"><a href="/">← back to site</a></div>
 <button class="hud" id="run" type="button" aria-pressed="false"><span class="key key-only">R</span><span class="touch-only">🏃</span>run</button>
 <div class="hud" id="prompt" role="button"><span class="key"><span class="key-only">E</span><span class="touch-only">tap</span></span><span id="promptLabel"></span></div>

@@ -207,7 +207,8 @@ export function createPlayer(scene) {
   // move: {x, z} in world axes; length 1 is full speed (a touch stick can
   // push less than that to walk slower). area: { colliders or solids, bounds,
   // speed, runSpeed, heightAt }; running switches to the area's run speed.
-  function update(dt, move, area, running = false) {
+  // face: {x, z} to face regardless of the move (walking backward behind Ani).
+  function update(dt, move, area, running = false, face = null) {
     const walk = area.speed || WALK;
     const speed = running ? area.runSpeed || walk * 1.8 : walk;
     let dx = move.x, dz = move.z;
@@ -226,6 +227,7 @@ export function createPlayer(scene) {
       const v = speed * pace / WALK;
       state.walkT += dt * 11 * (v <= 1 ? v : v <= 3 ? 1 + (v - 1) * 0.45 : 1.9 + (v - 3) * 0.2);
     }
+    if (face) { state.dirX = face.x; state.dirZ = face.z; }
     // ease the run blend so the gait doesn't snap when a thumb wavers
     const runTarget = state.moving ? Math.min(1, Math.max(0, (speed * pace - 9.5) / 5)) : 0;
     state.run += (runTarget - state.run) * Math.min(1, dt * 8);
