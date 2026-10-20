@@ -19,6 +19,8 @@ loop, the two driving cameras and the dashboard HUD.
   track their own finger, so any combination can be held at once.
 - Boost (Shift, or the sticker) raises the top speed to 205 mph and pulls
   harder; the cameras widen a little while it's on.
+- teleport() is fast travel's half: the car (and Ani, when walking) lands
+  on a parking spot without any interpolation smear.
 */
 import * as THREE from 'three';
 import { MPH } from './vehicle.js';
@@ -88,6 +90,18 @@ export function createDriver({ area, keys, stick, ui, player }) {
   function doorSpot(side = 1, along = 0.6) {
     const sn = Math.sin(s.h), cs = Math.cos(s.h), lx = side * (rav4.spec.w / 2 + 1.5);
     return { x: s.x + lx * cs + along * sn, z: s.z - lx * sn + along * cs, dirX: side * cs, dirZ: -side * sn };
+  }
+
+  // Ani on foot at the driver's door, else the passenger side, else behind or in front
+  function standBeside() {
+    const tries = [doorSpot(1), doorSpot(-1), doorSpot(1, -9.5), doorSpot(1, 9.5)];
+    const free = tries.find((p) => !area.world.solids.hit(p.x, p.z, player.radius + 0.3)) || tries[0];
+    const st = player.state;
+    Object.assign(st, { x: free.x, z: free.z, dirX: free.dirX, dirZ: free.dirZ });
+    st.y = area.heightAt(free.x, free.z);
+    player.group.position.set(st.x, st.y, st.z);
+    player.group.rotation.y = Math.atan2(st.dirX, st.dirZ);
+    player.group.visible = true;
   }
 
   function drawCar(dt) {
@@ -283,15 +297,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
       releasePedals();
       drawCar(1);
       area.car.parked = true;
-      // driver's door, else the passenger side, else behind or in front
-      const tries = [doorSpot(1), doorSpot(-1), doorSpot(1, -9.5), doorSpot(1, 9.5)];
-      const free = tries.find((p) => !area.world.solids.hit(p.x, p.z, player.radius + 0.3)) || tries[0];
-      const st = player.state;
-      Object.assign(st, { x: free.x, z: free.z, dirX: free.dirX, dirZ: free.dirZ });
-      st.y = area.heightAt(free.x, free.z);
-      player.group.position.set(st.x, st.y, st.z);
-      player.group.rotation.y = Math.atan2(st.dirX, st.dirZ);
-      player.group.visible = true;
+      standBeside();
       player.group.scale.setScalar(0.3);
       hop = { in: false, t: 0 };
       setMode(mode);
@@ -301,6 +307,22 @@ export function createDriver({ area, keys, stick, ui, player }) {
 
     toggleCam() {
       if (active) setMode(mode === 'cockpit' ? 'chase' : 'cockpit');
+    },
+
+    /** Fast travel: put the car on (x, z) facing h, stopped; a walking Ani lands at its door. */
+    teleport(x, z, h) {
+      vehicle.place(x, z, h);
+      Object.assign(prev, { x, z, h });
+      Object.assign(pose, prev);
+      acc = 0; trauma = 0;
+      chase.yaw = h;
+      y = area.heightAt(x, z);
+      drawCar(1);
+      if (!active) {
+        standBeside();
+        player.group.scale.setScalar(1);
+        hop = null;
+      }
     },
 
   };

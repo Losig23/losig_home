@@ -4,7 +4,8 @@ store. Generic names only (the game is public): every position here is feet
 from the home lot's reference point, like the rest of the outdoors.
 
 - Each place has a marker anchor over its building (checked against the
-  baked footprints), a parking spot, and an arrival radius. The stores' lots aren't in the map data, so the places that
+  baked footprints), a parking spot where fast travel leaves the car, and an
+  arrival radius. The stores' lots aren't in the map data, so the places that
   need one get a paved pad with stalls beside the building; the gas station
   gets a real canopy over its pumps in place of the solid block its footprint
   bakes into.
@@ -270,6 +271,12 @@ export function createGuide({ area, camera, ui, onArrive, onBanner }) {
     routeTo,
     clearRoute,
     places: PLACES,
+    /** After fast travel to p: arrival re-arms everywhere else, and the new neighborhood gets no banner. */
+    landed(p) {
+      for (const m of marks.values()) { m.armed = m.p !== p; m.still = 0; }
+      here = { name: areaAt(p.park.x, p.park.z, area.world?.bounds), t: 0, shown: null };
+      here.shown = here.name;
+    },
     distanceTo(p) { return Math.hypot(p.x - me.x, p.z - me.z); },
     get me() { return me; },
 
@@ -325,14 +332,15 @@ function placeRows(guide, skip = null) {
         <span class="ico">${p.icon}</span>
         <span class="nm"><b>${esc(p.name)}</b><small>${fmtDist(d)} away${t === p ? ' · routed' : ''}</small></span>
         ${t === p ? `<button class="pbtn" type="button" data-clear="1">Clear</button>` : `<button class="pbtn" type="button" data-route="${p.id}">Route</button>`}
+        <button class="pbtn go" type="button" data-go="${p.id}">Go</button>
       </li>`).join('');
 }
 
-/** The Places list: route to one (minimap + ground ribbon + turn card). */
+/** The Places list: route to one (minimap + ground ribbon + turn card), or fast travel. */
 export function placesPanel(guide) {
   return {
     title: '📍 Places',
-    html: `<p class="muted">Route draws the way on the minimap and the street.</p>
+    html: `<p class="muted">Route draws the way on the minimap and the street; Go fades you straight there.</p>
       <ul class="plist">${placeRows(guide)}</ul>`,
   };
 }
@@ -359,12 +367,13 @@ export async function arrivalPanel(place, guide, authed) {
   };
 }
 
-/** Wire a panel's Route / Clear buttons to main.js's actions. */
-export function bindPlaces(root, { route, clear }) {
+/** Wire a panel's Route / Clear / Go buttons to main.js's actions. */
+export function bindPlaces(root, { route, clear, go }) {
   root.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-route], button[data-clear]');
+    const btn = e.target.closest('button[data-route], button[data-go], button[data-clear]');
     if (!btn) return;
     if (btn.dataset.route) route(btn.dataset.route);
+    else if (btn.dataset.go) go(btn.dataset.go);
     else clear();
   });
 }

@@ -16,7 +16,9 @@ getting in, getting out and toggling views never cut. Fog and ink fade
 distances ease to the current mode's values the same way.
 
 Outdoors, places.js adds the Places (markers, minimap, routes, arrivals);
-the Places list opens from P or the minimap.
+the Places list opens from P or the minimap, and fast travel is a travel()
+within the area: fade out, move the car and Ani, stream the chunks in
+behind the black, fade back.
 */import * as THREE from 'three';
 import { buildApartment } from './world.js';
 import { createInk } from './ink.js';
@@ -435,6 +437,7 @@ const placeActions = {
     if (panelKind === "places") openPlaces();
     else closePanel();
   },
+  go(id) { fastTravel(id); },
 };
 
 function openPlaces() {
@@ -457,6 +460,38 @@ function arrive(p) {
     render: () => area.places.arrivalPanel(p, area.guide, authed),
     bind: (root) => area.places.bindPlaces(root, placeActions),
   });
+}
+
+async function fastTravel(id) {
+  const p = area?.guide?.places.find((q) => q.id === id);
+  if (!p || travelling) return;
+  travelling = true;
+  closePanel();
+  resetStick();
+  fadeEl.classList.add("on");
+  await new Promise((r) => setTimeout(r, 280));
+  try {
+    const inCar = driving();
+    area.driver.teleport(p.park.x, p.park.z, p.park.h);
+    if (area.guide.target === p) area.guide.clearRoute();
+    // stream the new spot in behind the black, a bigger slice of each frame than usual
+    const t0 = performance.now();
+    while (performance.now() - t0 < 8000 && !area.town.readyAround(p.park.x, p.park.z, 900)) {
+      area.town.update(p.park.x, p.park.z, inCar ? 1800 : 1200, 30);
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    if (inCar) area.driver.cameraPose(want, 0, camera.aspect);
+    else followPose(0, true);
+    blend.t = blend.dur;
+    applyCamera(0);
+    updateView(1, inCar, true);
+    area.guide.landed(p);
+  } catch (err) {
+    console.error("fast travel failed", err);
+  }
+  fadeEl.classList.remove("on");
+  travelling = false;
+  arrive(p);
 }
 
 // /game?start=outside drops you straight into the lot (handy for testing)

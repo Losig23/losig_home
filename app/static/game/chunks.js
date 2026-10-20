@@ -227,6 +227,17 @@ export function createTown({ scene, world, breakables, restyle = [], base = '/st
     get loaded() { return [...chunks.values()].filter((c) => c.solids).length; },
     get pending() { return [...chunks.values()].filter((c) => !c.solids).length; },
 
+    /** Is every chunk within r of (x, z) built? (Fast travel waits on this behind the fade.) */
+    readyAround(x, z, r) {
+      if (!index) return false;
+      for (const key of have) {
+        const [i, j] = key.split(',').map(Number);
+        if (Math.hypot((i + 0.5) * size - x, (j + 0.5) * size - z) > r) continue;
+        if (!chunks.get(key)?.solids && !chunks.get(key)?.failed) return false;
+      }
+      return true;
+    },
+
     /** Stream around (fx, fz): load within radius, drop beyond radius + 500, build within budget ms. */
     update(fx, fz, radius, budget = 4) {
       if (!index) return;
