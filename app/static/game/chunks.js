@@ -15,7 +15,8 @@ same style as the hand-built blocks (town.js).
   createWorld), sidewalk heights and a 4 ft "is this pavement?" raster.
 
 Chunk data, all feet from the home lot's reference point: roads [look, w,
-xz...], curbs [x1, z1, x2, z2], walks [w, xz...], areas [kind, xz...],
+xz...], aisles [xz...] (parking aisles, paved with a row of stalls on each
+side), curbs [x1, z1, x2, z2], walks [w, xz...], areas [kind, xz...],
 rails [xz...], rivers [w, xz...], houses [x, z, w, d, ry, h, roof, siding,
 roof color, commercial], blocks [xz..., h, color], trees [x, z, r], props
 [kind, x, z, ry].
@@ -43,6 +44,7 @@ const SHOP_WALL = [0xc9a98a, 0xddd2bf, 0xece8df, 0xc9ccce, 0xd8c8a8];
 const SHOP_ROOF = [0xe2ded6, 0x6b7077, 0xd9d4ca, 0x8d949b, 0xe2ded6];
 const ROOFS = ['gable', 'flat', 'low'];
 const CELL = 4, N = 150;   // pavement raster: 4 ft cells, 150 across a chunk
+const AISLE = 58, STALL = 9; // an aisle's paved band (22 ft lane, 18 ft stalls each side); stall width
 
 const pairs = (flat) => { const out = []; for (let i = 0; i < flat.length; i += 2) out.push([flat[i], flat[i + 1]]); return out; };
 
@@ -78,6 +80,20 @@ export function createTown({ scene, world, breakables, base = '/static/game/town
       const street = look === 'collector' || look === 'res';
       (street ? g.streets : g.drives).ribbon(pts, w, 0.02, street ? ASPHALT : look === 'track' ? GRAVEL : DRIVE);
       if (look === 'collector') for (const s of [-0.45, 0.45]) g.paint.ribbon(offsetLine(pts, s), 0.32, 0.05, YELLOW, false);
+    }
+    for (const [flat] of d.aisles || []) {
+      const pts = pairs(flat);
+      g.lots.ribbon(pts, AISLE, 0.03, AREA.lot[0]);
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [x1, z1] = pts[i], [x2, z2] = pts[i + 1];
+        const len = Math.hypot(x2 - x1, z2 - z1), tx = (x2 - x1) / len, tz = (z2 - z1) / len, ry = Math.atan2(tx, tz);
+        for (let u = STALL; u < len - STALL / 2; u += STALL) {
+          for (const side of [-1, 1]) {
+            const o = side * (AISLE / 2 - 9);
+            g.paint.flat(x1 + tx * u - tz * o, 0.05, z1 + tz * u + tx * o, 17, 0.4, 0xf4f1ea, ry);
+          }
+        }
+      }
     }
     for (const flat of d.rails || []) {
       const pts = pairs(flat);
@@ -165,6 +181,9 @@ export function createTown({ scene, world, breakables, base = '/static/game/town
     }
     for (const [w, flat] of d.walks || []) {
       for (let k = 0; k + 3 < flat.length; k += 2) seg(flat[k], flat[k + 1], flat[k + 2], flat[k + 3], w / 2 + 1);
+    }
+    for (const [flat] of d.aisles || []) {
+      for (let k = 0; k + 3 < flat.length; k += 2) seg(flat[k], flat[k + 1], flat[k + 2], flat[k + 3], AISLE / 2);
     }
     for (const [kind, flat] of d.areas || []) {
       if (kind !== 'lot') continue;

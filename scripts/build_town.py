@@ -60,6 +60,9 @@ ROADS = {
     "service": ("service", 20), "track": ("track", 12),
 }
 SERVICE_W = {"driveway": 12, "parking_aisle": 22, "drive-through": 12, "alley": 14}
+# OSM maps most lots here only by their aisles, so each aisle gets a paved band
+# of stalls on both sides (22 ft aisle + two 18 ft stalls)
+AISLE_BAND = 58
 CURBED = {"collector", "res"}
 AREAS = {  # tag value -> area kind (drawn in this order, later on top)
     "farmland": "farm", "meadow": "meadow", "grassland": "meadow", "scrub": "meadow", "wetland": "meadow",
@@ -429,7 +432,8 @@ def bake(s, osm):
                     look = "drive"
             if t.get("area") == "yes" or t.get("tunnel") in ("yes", "culvert"):
                 continue
-            roads.append({"look": look, "w": w, "pts": pts, "cls": hw, "nodes": el.get("nodes", [])})
+            roads.append({"look": look, "w": w, "pts": pts, "cls": hw, "nodes": el.get("nodes", []),
+                          "aisle": t.get("service") == "parking_aisle"})
             for i, nid in enumerate(el.get("nodes", [])):
                 node_roads.setdefault(nid, []).append((roads[-1], i))
         elif hw == "footway" and t.get("footway") == "sidewalk":
@@ -670,8 +674,11 @@ def bake(s, osm):
         tx, tz = x + math.cos(ry) * (w / 2 + 14) * side, z - math.sin(ry) * (w / 2 + 14) * side
         trees.append((tx, tz, 8 + rnd(f"r{hs[0]}") * 4))
 
+    def in_stalls(x, z, pad=0):
+        return any(r["aisle"] and seg_dist(x, z, a, b) < AISLE_BAND / 2 + pad for (r, a, b) in rgrid.near(x, z, 40))
+
     def tree_ok(x, z):
-        if not out_of_hole(x, z) or near_other_road(x, z, None, 5) or in_lot(x, z):
+        if not out_of_hole(x, z) or near_other_road(x, z, None, 5) or in_lot(x, z) or in_stalls(x, z, 4):
             return False
         return not any(inside(o["poly"], x, z) for o in bgrid.near(x, z, 15))
     trees = [t for t in trees if B[0] <= t[0] <= B[2] and B[1] <= t[1] <= B[3] and tree_ok(t[0], t[1])]
@@ -679,7 +686,7 @@ def bake(s, osm):
     # ---- chunk it all ----
     chunks = {}
     def chunk(i, j):
-        return chunks.setdefault((i, j), {"roads": [], "curbs": [], "walks": [], "areas": [], "rails": [], "rivers": [],
+        return chunks.setdefault((i, j), {"roads": [], "aisles": [], "curbs": [], "walks": [], "areas": [], "rails": [], "rivers": [],
                                           "houses": [], "blocks": [], "trees": [], "props": []})
 
     def chunk_rect(i, j):
@@ -717,6 +724,8 @@ def bake(s, osm):
 
     for r in roads:
         lines_into(r["pts"], "roads", [r["look"], r["w"]])
+        if r["aisle"]:
+            lines_into(r["pts"], "aisles", [])
     for w in walks:
         lines_into(w, "walks", [5])
     for pts in rails:

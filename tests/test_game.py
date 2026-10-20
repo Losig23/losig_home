@@ -123,7 +123,7 @@ def test_game_ships_no_real_addresses_or_coordinates():
 
 # The baked town holds shapes and a few class words only: no OSM names,
 # addresses or other free text can ride along in it.
-_CHUNK_KEYS = {"roads", "curbs", "walks", "areas", "rails", "rivers", "houses", "blocks", "trees", "props"}
+_CHUNK_KEYS = {"roads", "aisles", "curbs", "walks", "areas", "rails", "rivers", "houses", "blocks", "trees", "props"}
 _CHUNK_WORDS = {"collector", "res", "service", "drive", "track",
                 "farm", "meadow", "park", "wood", "pitch", "water", "lot",
                 "pole", "lamp", "stop", "signal"}
