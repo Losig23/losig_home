@@ -173,9 +173,24 @@ export function createGuide({ area, camera, ui, onArrive, onBanner }) {
   }
 
   // ---- markers: project, stack, clamp the routed one to the screen edge ----
+  // The HUD's stickers count as already placed, so labels stack clear of them
+  // (re-measured twice a second; they move between foot, driving and phone layouts).
+  const HUD = ['title', 'authpill', 'help', 'exit', 'run', 'map', 'speedo', 'drivetop', 'pedals', 'turn', 'prompt'];
+  let hud = [], hudT = 0;
   const placed = [];
-  function drawMarks(W, H) {
+  function drawMarks(W, H, dt) {
+    hudT -= dt;
+    if (hudT <= 0) {
+      hudT = 0.5;
+      hud = [];
+      for (const id of HUD) {
+        const el = document.getElementById(id);
+        const r = el?.getBoundingClientRect();
+        if (r && r.width && r.height && getComputedStyle(el).opacity !== '0') hud.push({ x1: r.left - 4, x2: r.right + 4, y1: r.top - 4, y2: r.bottom + 4, hud: true });
+      }
+    }
     placed.length = 0;
+    placed.push(...hud);
     const list = [];
     for (const m of marks.values()) {
       const { p } = m;
@@ -220,10 +235,12 @@ export function createGuide({ area, camera, ui, onArrive, onBanner }) {
       x = Math.max(m.w / 2 + 6, Math.min(W - m.w / 2 - 6, x));
       // stack up and out of the way of nearer labels (in the world, the tail's tip is the spot)
       let top = edge ? y - m.h / 2 : y - m.h - 9;
-      for (let k = 0; k < 6; k++) {
+      for (let k = 0; k < 8; k++) {
         const hit = placed.find((r) => x - m.w / 2 < r.x2 && x + m.w / 2 > r.x1 && top < r.y2 && top + m.h > r.y1);
         if (!hit) break;
-        top = hit.y1 - m.h - 2;
+        // slide in off a HUD sticker (toward the middle); stack up over another label
+        if (hit.hud) x = x > W / 2 ? hit.x1 - m.w / 2 - 2 : hit.x2 + m.w / 2 + 2;
+        else top = hit.y1 - m.h - 2;
       }
       placed.push({ x1: x - m.w / 2, x2: x + m.w / 2, y1: top, y2: top + m.h });
       m.el.style.transform = `translate(${Math.round(x - m.w / 2)}px, ${Math.round(top)}px)`;
@@ -277,18 +294,22 @@ export function createGuide({ area, camera, ui, onArrive, onBanner }) {
       here = { name: areaAt(p.park.x, p.park.z, area.world?.bounds), t: 0, shown: null };
       here.shown = here.name;
     },
-    distanceTo(p) { return Math.hypot(p.x - me.x, p.z - me.z); },
+    /** Straight-line feet from where you are now (fresh, so panels built right after fast travel are right). */
+    distanceTo(p) {
+      locate();
+      return Math.hypot(p.x - me.x, p.z - me.z);
+    },
     get me() { return me; },
 
     update(dt, ani) {
       player = ani;
       locate();
       const W = innerWidth, H = innerHeight;
-      drawMarks(W, H);
+      drawMarks(W, H, dt);
       checkArrival(dt);
       checkArea(dt);
       route?.update(dt, me);
-      drawTurn(ui.turn, me.driving && route?.active ? route.next() : null, target);
+      drawTurn(ui.turn, me.driving && route?.active ? route.next(me) : null, target);
       // the minimap redraws at most ~30 times a second
       mapT += dt;
       if (minimap && mapT >= 1 / 32) {
@@ -301,21 +322,23 @@ export function createGuide({ area, camera, ui, onArrive, onBanner }) {
 
 
 // ---- the turn card: the next turn and how far, while a route is on ----
-const GLYPH = { left: '↰', right: '↱', 'slight left': '↖', 'slight right': '↗', u: '↶', straight: '↑', arrive: '⚑' };
+const GLYPH = { left: '↰', right: '↱', 'slight left': '↖', 'slight right': '↗', u: '↶', back: '↶', straight: '↑', arrive: '⚑' };
+const SAY = { left: 'Left', right: 'Right', 'slight left': 'Bear left', 'slight right': 'Bear right', u: 'U-turn' };
 
 function drawTurn(el, next, target) {
   el.classList.toggle('show', !!next);
   if (!next) return;
   const what = next.dir === 'arrive' ? 'Arriving'
-    : next.dir === 'straight' ? `Straight on · ${fmtDist(next.dist)}`
-      : `${next.dir[0].toUpperCase()}${next.dir.slice(1)} in ${fmtDist(next.dist)}`;
+    : next.dir === 'back' ? 'Turn around'
+      : next.dir === 'straight' ? `Straight on · ${fmtDist(next.dist)}`
+        : `${SAY[next.dir]} in ${fmtDist(next.dist)}`;
   const key = `${next.dir}|${what}|${target.tag}|${fmtDist(next.left)}`;
   if (el.dataset.key === key) return;
   el.dataset.key = key;
   el.querySelector('.glyph').textContent = GLYPH[next.dir];
   el.querySelector('.what').textContent = what;
   el.querySelector('.to').textContent = `${target.tag} · ${fmtDist(next.left)}`;
-  el.classList.toggle('soon', next.dir !== 'straight' && next.dist < 250);
+  el.classList.toggle('soon', next.dir === 'back' || (next.dir !== 'straight' && next.dist < 250));
 }
 
 

@@ -2,8 +2,8 @@
 The active route to a place: the line A* found (roads.js), drawn on the
 ground, followed as you drive, and read out as the next turn.
 
-- The ribbon is a pale blue band down the middle of the street with paper
-  chevrons every 28 ft pointing the way, one mesh for the whole route. It
+- The ribbon is a pale blue band down the middle of the street with deeper
+  blue chevrons every 30 ft pointing the way, one mesh for the whole route. It
   sits on the ground layers (batch.js GROUND) a step above the paint, so it
   never z-fights the road from the driver's seat. Every vertex knows how far
   along the route it is, and the shader drops what's behind you, so the
@@ -17,9 +17,9 @@ import { pencil } from './pencil.js';
 import { lengths } from './roads.js';
 
 const BAND = new THREE.Color(0xa9c4f5);
-const CHEVRON = new THREE.Color(0xfffdf6);
-const W = 7;            // band width, ft
-const STEP = 28;        // chevron spacing, ft
+const CHEVRON = new THREE.Color(0x4a7be6);
+const W = 8;            // band width, ft
+const STEP = 30;        // chevron spacing, ft
 
 /** "350 ft" under 1,000 ft (to the nearest 50), else miles to a tenth. */
 export function fmtDist(ft) {
@@ -70,10 +70,11 @@ function ribbonGeometry(pts, at) {
     }
     // chevrons: a ">" of two bars, tip forward
     for (let s = Math.ceil(at[i] / STEP) * STEP; s < at[i + 1]; s += STEP) {
-      const u = s - at[i], cx = x1 + tx * (u + 1.3), cz = z1 + tz * (u + 1.3);
+      const u = s - at[i], cx = x1 + tx * (u + 3), cz = z1 + tz * (u + 3);
       for (const side of [-1, 1]) {
-        const bx = cx - tx * 2.6 + nx * side * 2.4, bz = cz - tz * 2.6 + nz * side * 2.4;
-        const dx = cx - bx, dz = cz - bz, dl = Math.hypot(dx, dz), px = -dz / dl * 0.5, pz = dx / dl * 0.5;
+        // long along the way: from the driver's seat a flat shape shrinks to a sliver
+        const bx = cx - tx * 6 + nx * side * 3, bz = cz - tz * 6 + nz * side * 3;
+        const dx = cx - bx, dz = cz - bz, dl = Math.hypot(dx, dz), px = -dz / dl * 0.8, pz = dx / dl * 0.8;
         quad([[bx - px, bz - pz], [cx - px, cz - pz], [cx + px, cz + pz], [bx + px, bz + pz]], [s, s, s, s], CHEVRON, -5);
       }
     }
@@ -158,12 +159,17 @@ export function createRoute({ scene, roads }) {
       mat.userData.cut.value = r.s - 12;
     },
 
-    /** The next turn from here: {dir, dist, left (to the destination)}. */
-    next() {
+    /** The next turn from here: {dir, dist, left (to the destination)}; driving away from the route is 'back'. */
+    next(me) {
       if (!r) return null;
       const left = Math.max(0, r.total - r.s);
       const t = r.turns.find((x) => x.at > r.s + 8);
       if (left < 120) return { dir: 'arrive', dist: left, left };
+      if (me?.driving && r.i < r.pts.length - 1) {
+        const [x1, z1] = r.pts[r.i], [x2, z2] = r.pts[r.i + 1];
+        const L = Math.hypot(x2 - x1, z2 - z1) || 1;
+        if (((x2 - x1) * Math.sin(me.h) + (z2 - z1) * Math.cos(me.h)) / L < -0.5) return { dir: 'back', dist: 0, left };
+      }
       if (!t) return { dir: 'straight', dist: left, left };
       return { dir: t.dir, dist: t.at - r.s, left };
     },
