@@ -189,7 +189,13 @@ export const INTERACTABLES = [
   { id: "stove", label: "Check the stove", x: 18.75, z: 5.25, r: 2.8, kind: "meals-today" },
   { id: "fridge", label: "Open the fridge", x: 21.7, z: 5.0, r: 2.8, kind: "meals-past" },
   { id: "nightstand", label: "Open nightstand drawer", x: 9.1, z: 18.8, r: 2.6, kind: "diary" },
+  // the front door goes somewhere instead of opening a panel; tight radius so
+  // it only asks once you walk up to it, not while standing on the mat
+  { id: "front-door", label: "Head outside", x: 30.75, z: 0.8, r: 0.85, go: "outside" },
 ];
+
+// Walkable box: inside the shell (the balcony is visual only).
+export const BOUNDS = { x1: 0.8, z1: 0.8, x2: 31.2, z2: 19.2 };
 
 // Start just inside the main entrance, on the mat, facing into the apartment.
 export const SPAWN = { x: 30.45, z: 1.7, dirX: 0, dirZ: 1 };

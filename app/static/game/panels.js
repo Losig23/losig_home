@@ -11,11 +11,20 @@ hitting the same POST/PUT endpoints the regular pages use.
 
 const PLATFORMS = ["PS5", "PS4", "Phone", "PC", "Switch", "Other"];
 
-async function getJSON(url) {
+// a server error gets one quiet retry (a sleeping free-tier server can 500 while it wakes)
+async function getJSON(url, tries = 2) {
   const r = await fetch(url);
+  if (r.status >= 500 && tries > 1) {
+    await new Promise((res) => setTimeout(res, 900));
+    return getJSON(url, tries - 1);
+  }
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
+
+// /api/public/week: {sessions: [{date, day_name, exercises: [{exercise, ...}]}], meals: [{date, description, calories, ...}]}
+const mealRow = (m) =>
+  `<li><b>${esc(m.description)}</b> <span class="muted">${m.calories != null ? `${Math.round(m.calories)} kcal` : ""}</span></li>`;
 
 const TITLES = {
   games: "🎮 Controller — games",
@@ -75,9 +84,8 @@ function workPanel() {
 async function gymPanel(authed) {
   if (!authed) {
     const pub = await getJSON("/api/public/week");
-    const days = (pub.days || []).filter((d) => (d.sessions || []).length);
-    const rows = days.slice(0, 7).map((d) =>
-      `<li><b>${esc(d.date)}</b> <span class="muted">${d.sessions.map((s) => esc(s.label || s.kind)).join(", ")}</span></li>`).join("");
+    const rows = (pub.sessions || []).slice(0, 7).map((s) =>
+      `<li><b>${esc(s.date)}</b> <span class="muted">${esc(s.day_name || "session")}${(s.exercises || []).length ? ` · ${s.exercises.map((e) => esc(e.exercise)).join(", ")}` : ""}</span></li>`).join("");
     return `<h3>This week (public)</h3>${rows ? `<ul>${rows}</ul>` : `<p class="muted">No public sessions.</p>`}` + loginNote();
   }
   const sessions = await getJSON("/api/sessions");
@@ -91,11 +99,11 @@ async function mealsTodayPanel(authed) {
   const today = new Date().toISOString().slice(0, 10);
   if (!authed) {
     const pub = await getJSON("/api/public/week");
-    const day = (pub.days || []).find((d) => d.date === today) || (pub.days || [])[0];
-    const meals = day?.meals || [];
-    const rows = meals.map((m) =>
-      `<li><b>${esc(m.description)}</b> <span class="muted">${m.calories != null ? `${m.calories} kcal` : ""}</span></li>`).join("");
-    return `<h3>${esc(day?.date || today)} (public)</h3>${rows ? `<ul>${rows}</ul>` : `<p class="muted">No meals logged.</p>`}` + loginNote();
+    const all = pub.meals || [];
+    // today's, else the latest day that has any
+    const day = all.some((m) => m.date === today) ? today : all.length ? all[all.length - 1].date : today;
+    const rows = all.filter((m) => m.date === day).map(mealRow).join("");
+    return `<h3>${esc(day)} (public)</h3>${rows ? `<ul>${rows}</ul>` : `<p class="muted">No meals logged this week.</p>`}` + loginNote();
   }
   const [totals, meals] = await Promise.all([
     getJSON("/api/meals/daily"),
@@ -121,10 +129,14 @@ async function mealsTodayPanel(authed) {
 
 async function mealsPastPanel(authed) {
   const pub = await getJSON("/api/public/week");
-  const days = (pub.days || []).filter((d) => (d.meals || []).length);
-  const rows = days.slice(0, 7).map((d) => {
-    const kcal = d.meals.reduce((a, m) => a + (m.calories || 0), 0);
-    return `<li><b>${esc(d.date)}</b> <span class="muted">${d.meals.length} meal${d.meals.length > 1 ? "s" : ""}${kcal ? ` · ${Math.round(kcal)} kcal` : ""}</span></li>`;
+  const days = new Map();
+  for (const m of pub.meals || []) {
+    if (!days.has(m.date)) days.set(m.date, []);
+    days.get(m.date).push(m);
+  }
+  const rows = [...days].reverse().slice(0, 7).map(([date, meals]) => {
+    const kcal = meals.reduce((a, m) => a + (m.calories || 0), 0);
+    return `<li><b>${esc(date)}</b> <span class="muted">${meals.length} meal${meals.length > 1 ? "s" : ""}${kcal ? ` · ${Math.round(kcal)} kcal` : ""}</span></li>`;
   }).join("");
   return `<h3>Past week (public)</h3>${rows ? `<ul>${rows}</ul>` : `<p class="muted">No meals logged.</p>`}
     ${authed ? `<p><a href="/food">Open the food log →</a></p>` : loginNote()}`;
@@ -160,7 +172,7 @@ export async function renderPanel(kind, authed) {
       default: html = `<p class="muted">Nothing here yet.</p>`;
     }
   } catch (e) {
-    html = `<p class="muted">Couldn't load that right now (${esc(e.message)}).</p>`;
+    html = `<p class="muted">Couldn't load that just now (${esc(e.message)}); the server may be waking up. <a href="#" data-retry>Try again</a></p>`;
   }
   return { title, html };
 }
