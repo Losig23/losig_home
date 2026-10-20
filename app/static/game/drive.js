@@ -1,6 +1,7 @@
 /*
-Driving the RAV4: getting in and out, the controls, the fixed-step physics
-loop, the two driving cameras and the dashboard HUD.
+Driving: getting in and out of any of the outdoors' vehicles (the RAV4,
+and the garage of cars and the bike parked beside it), the controls, the
+fixed-step physics loop, the three driving cameras and the dashboard HUD.
 
 - Get in: at the driver's door ("Get in": E or tap the bubble) Ani steps
   in and disappears while the camera blends into the seat. Get out (E or
@@ -9,22 +10,24 @@ loop, the two driving cameras and the dashboard HUD.
 - Physics steps at a fixed 60 Hz (vehicle.js). The car is drawn
   interpolated between the last two steps so it's smooth at any frame rate,
   with a little body roll and pitch from the forces.
-- Cameras: the cockpit (the default, except on portrait phones) sits at the driver's eye and glances into
-  turns; the chase camera trails on a lagging yaw, backs off and widens its
-  FOV with speed, and pulls in when a wall gets between it and the car.
-  C or the camera sticker toggles; main.js blends every camera change.
-  Hits shake both (trauma squared, so small taps barely register).
+- Cameras: the cockpit (the default, except on portrait phones) sits at the
+  driver's eye and glances into turns; the chase camera trails on a lagging
+  yaw, backs off and widens its FOV with speed, and pulls in when a wall gets
+  between it and the car; the high camera is the same chase from further up
+  and back. C or the camera sticker cycles them; main.js blends every
+  camera change. Hits shake all three (trauma squared, so small taps barely
+  register). Each vehicle sets its own eye and chase distance.
+- The bike leans into turns, the cars lean out of them.
 - Touch: the floating stick steers (sideways only, left side of the
   screen); Gas, Brake/Reverse, Drift and Boost stickers on the right each
   track their own finger, so any combination can be held at once.
 - Boost (Shift, or the sticker) raises the top speed to 205 mph and pulls
   harder; the cameras widen a little while it's on.
-- teleport() is fast travel's half: the car (and Ani, when walking) lands
-  on a parking spot without any interpolation smear.
+- teleport() is fast travel's half: the last vehicle you drove (and Ani,
+  when walking) lands on a parking spot without any interpolation smear.
 */
 import * as THREE from 'three';
 import { MPH } from './vehicle.js';
-import { EYE } from './car.js';
 
 const STEP = 1 / 60;
 const EXIT_MPH = 5;
@@ -39,10 +42,10 @@ const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
  * stick: the touch stick ({x} in -1..1); ui: HUD elements; player: Ani.
  */
 export function createDriver({ area, keys, stick, ui, player }) {
-  const { rav4, vehicle } = area.car;
-  const s = vehicle.s;
-  const prev = { x: s.x, z: s.z, h: s.h };
-  const pose = { x: s.x, z: s.z, h: s.h };
+  // the vehicle in use: the last one driven (fast travel takes it along)
+  let car, model, vehicle, s, spec;
+  const prev = { x: 0, z: 0, h: 0 };
+  const pose = { x: 0, z: 0, h: 0 };
   let acc = 0;
   let active = false;
   let mode = null;              // first time in: cockpit, or chase on a portrait phone
@@ -50,7 +53,23 @@ export function createDriver({ area, keys, stick, ui, player }) {
   let trauma = 0, shakeT = 0;
   let y = 0, roll = 0, pitch = 0, boostK = 0;
   let hop = null;               // Ani stepping in or out
-  const chase = { yaw: s.h, dist: 22, lift: 7.5 };
+  const chase = { yaw: 0, dist: 22, lift: 7.5 };
+  const MODES = ['cockpit', 'chase', 'high'];
+  const LABEL = { cockpit: 'cockpit', chase: 'chase cam', high: 'high cam' };
+
+  function use(c) {
+    car = c;
+    area.car = c;
+    ({ model, vehicle } = c);
+    s = vehicle.s;
+    spec = model.spec;
+    Object.assign(prev, { x: s.x, z: s.z, h: s.h });
+    Object.assign(pose, prev);
+    chase.yaw = s.h;
+    chase.dist = spec.cam?.dist ?? 22;
+    chase.lift = spec.cam?.lift ?? 7.5;
+  }
+  use(area.car);
 
   // ---- touch pedals: each sticker remembers which fingers are on it ----
   const pedals = { gas: new Set(), brake: new Set(), drift: new Set(), boost: new Set() };
@@ -86,15 +105,16 @@ export function createDriver({ area, keys, stick, ui, player }) {
     };
   }
 
-  // where Ani stands to get in or out: beside a door, 4.5 ft off the centerline
+  // where Ani stands to get in or out: beside a door, 1.5 ft out from the body
   function doorSpot(side = 1, along = 0.6) {
-    const sn = Math.sin(s.h), cs = Math.cos(s.h), lx = side * (rav4.spec.w / 2 + 1.5);
+    const sn = Math.sin(s.h), cs = Math.cos(s.h), lx = side * (spec.w / 2 + 1.5);
     return { x: s.x + lx * cs + along * sn, z: s.z - lx * sn + along * cs, dirX: side * cs, dirZ: -side * sn };
   }
 
   // Ani on foot at the driver's door, else the passenger side, else behind or in front
   function standBeside() {
-    const tries = [doorSpot(1), doorSpot(-1), doorSpot(1, -9.5), doorSpot(1, 9.5)];
+    const ends = spec.len / 2 + 2;
+    const tries = [doorSpot(1), doorSpot(-1), doorSpot(1, -ends), doorSpot(1, ends)];
     const free = tries.find((p) => !area.world.solids.hit(p.x, p.z, player.radius + 0.3)) || tries[0];
     const st = player.state;
     Object.assign(st, { x: free.x, z: free.z, dirX: free.dirX, dirZ: free.dirZ });
@@ -105,17 +125,20 @@ export function createDriver({ area, keys, stick, ui, player }) {
   }
 
   function drawCar(dt) {
-    rav4.group.position.set(pose.x, y, pose.z);
-    rav4.group.rotation.y = pose.h;
-    // lean out of turns, squat under power, dive under braking
-    roll += (clamp(-s.lat * 0.0011, -0.055, 0.055) - roll) * ease(7, dt);
+    model.group.position.set(pose.x, y, pose.z);
+    model.group.rotation.y = pose.h;
+    // cars lean out of turns, the bike into them; squat under power, dive under braking
+    const lean = spec.kind === 'bike'
+      ? clamp(Math.atan(s.lat / 32.2) * 0.85, -0.75, 0.75)
+      : clamp(-s.lat * 0.0011, -0.055, 0.055);
+    roll += (lean - roll) * ease(spec.kind === 'bike' ? 5 : 7, dt);
     pitch += (clamp(-s.accel * 0.0012, -0.04, 0.035) - pitch) * ease(7, dt);
-    rav4.chassis.rotation.set(active ? pitch : 0, 0, active ? roll : 0);
-    for (const w of rav4.wheels) {
+    model.chassis.rotation.set(active ? pitch : 0, 0, active ? roll : 0);
+    for (const w of model.wheels) {
       w.rotation.x = s.spin;
       if (w.userData.front) w.rotation.y = -s.wheel;
     }
-    rav4.cockpit.wheel.rotation.z = s.steer * 2.3;
+    model.cockpit.steer(s.steer);
   }
 
   function update(dt) {
@@ -161,6 +184,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
   const _m = new THREE.Matrix4();
   const _q = new THREE.Quaternion();
   const _e = new THREE.Euler(0, 0, 0, 'YXZ');
+  const _z = new THREE.Vector3(0, 0, 1);
   const look = new THREE.Vector3();
 
   function shake(out) {
@@ -176,26 +200,28 @@ export function createDriver({ area, keys, stick, ui, player }) {
   }
 
   function cockpitPose(out, aspect) {
-    rav4.group.updateMatrixWorld(true);
-    out.position.copy(EYE).applyMatrix4(rav4.chassis.matrixWorld);
+    model.group.updateMatrixWorld(true);
+    out.position.copy(spec.eye).applyMatrix4(model.chassis.matrixWorld);
     // glance into the turn a little, more when moving
     const glance = -s.steer * 0.13 * Math.min(1, Math.abs(s.vf) / 30 + 0.3);
     const r = shake(out);
     _e.set(-0.05, Math.PI + glance, r);
     out.quaternion.setFromEuler(_e);
-    rav4.chassis.getWorldQuaternion(_q);
+    model.chassis.getWorldQuaternion(_q);
     out.quaternion.premultiply(_q);
     out.fov = fovFor(62 + 6 * Math.min(1, Math.abs(s.vf) / (120 * MPH)) + 5 * boostK, aspect);
     out.near = 0.25;
   }
 
-  function chasePose(out, dt, aspect) {
+  // the chase camera, or (high) the same from further up and back, looking further ahead
+  function chasePose(out, dt, aspect, high) {
     const speed = Math.abs(s.vf);
+    const base = spec.cam?.dist ?? 22, lift0 = spec.cam?.lift ?? 7.5;
     // yaw trails the heading (swings wide in drifts); reversing keeps it behind
     chase.yaw += wrap(pose.h - chase.yaw) * ease(s.drifting ? 2.2 : 3.6, dt);
-    const want = 22 + speed * 0.03 + clamp(s.accel, -30, 30) * 0.05;
+    const want = (high ? base * 1.6 : base) + speed * 0.03 + clamp(s.accel, -30, 30) * 0.05;
     chase.dist += (want - chase.dist) * ease(3, dt);
-    chase.lift += (7.5 + speed * 0.008 - chase.lift) * ease(3, dt);
+    chase.lift += ((high ? lift0 * 2.4 : lift0) + speed * 0.008 - chase.lift) * ease(3, dt);
     const sn = Math.sin(chase.yaw), cs = Math.cos(chase.yaw);
     let dist = chase.dist;
     // a wall between the car and the camera pulls it in (instead of the cutaway)
@@ -206,12 +232,12 @@ export function createDriver({ area, keys, stick, ui, player }) {
     out.position.set(pose.x - sn * dist, y + chase.lift * (1.5 - 0.5 * dist / chase.dist), pose.z - cs * dist);
     const r = shake(out);
     // pulled in tight, look further up the road rather than down at the roof
-    const ahead = 6 + 26 * (1 - dist / chase.dist);
-    look.set(pose.x + Math.sin(pose.h) * ahead, y + 3.6, pose.z + Math.cos(pose.h) * ahead);
+    const ahead = (high ? 22 : 6) + 26 * (1 - dist / chase.dist);
+    look.set(pose.x + Math.sin(pose.h) * ahead, y + (high ? 2.4 : 3.6), pose.z + Math.cos(pose.h) * ahead);
     _m.lookAt(out.position, look, THREE.Object3D.DEFAULT_UP);
     out.quaternion.setFromRotationMatrix(_m);
-    if (r) out.quaternion.multiply(_q.setFromAxisAngle(new THREE.Vector3(0, 0, 1), r));
-    out.fov = fovFor(58 + 16 * Math.min(1, speed / (130 * MPH)) + 6 * boostK, aspect);
+    if (r) out.quaternion.multiply(_q.setFromAxisAngle(_z, r));
+    out.fov = fovFor((high ? 54 : 58) + 16 * Math.min(1, speed / (130 * MPH)) + 6 * boostK, aspect);
     out.near = 0.5;
   }
 
@@ -225,7 +251,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
 
   function cameraPose(out, dt, aspect) {
     if (mode === 'cockpit') cockpitPose(out, aspect);
-    else chasePose(out, dt, aspect);
+    else chasePose(out, dt, aspect, mode === 'high');
   }
 
   // ---- HUD ----
@@ -235,7 +261,8 @@ export function createDriver({ area, keys, stick, ui, player }) {
     if (mph !== shownMph) {
       shownMph = mph;
       ui.mph.textContent = mph;
-      ui.dial.style.setProperty('--k', Math.min(1, mph / 160).toFixed(3));
+      // the dial fills at the vehicle's top speed
+      ui.dial.style.setProperty('--k', Math.min(1, mph / (vehicle.tune.top / MPH)).toFixed(3));
       ui.out.classList.toggle('off', mph >= EXIT_MPH);
     }
     const gear = s.vf < -1 ? 'R' : s.drifting ? 'DRIFT' : s.boosting ? 'BOOST' : '';
@@ -247,35 +274,38 @@ export function createDriver({ area, keys, stick, ui, player }) {
 
   function setMode(m) {
     mode = m;
-    rav4.cockpit.group.visible = active && mode === 'cockpit';
-    ui.cam.querySelector('.label').textContent = mode === 'cockpit' ? 'chase cam' : 'cockpit';
+    model.cockpit.group.visible = active && mode === 'cockpit';
+    // in first person on the bike, the rider is you
+    if (model.rider) model.rider.visible = active && mode !== 'cockpit';
+    ui.cam.querySelector('.label').textContent = LABEL[MODES[(MODES.indexOf(mode) + 1) % MODES.length]];
   }
 
   return {
     get active() { return active; },
     get mode() { return mode; },
+    get car() { return car; },
     get canExit() { return Math.abs(s.vf) < EXIT_MPH * MPH; },
     get speed() { return Math.abs(s.vf); },
     pose,
     update,
     cameraPose,
 
-    enter() {
+    /** Get into a vehicle (one of area.cars): Ani steps to its door and in. */
+    enter(c = car) {
       if (active) return;
+      use(c);
       const d = doorSpot();
       const st = player.state;
       hop = { in: true, t: 0, x: st.x, z: st.z, tx: d.x - d.dirX * 1.2, tz: d.z - d.dirZ * 1.2 };
       st.dirX = -d.dirX; st.dirZ = -d.dirZ;
       player.group.rotation.y = Math.atan2(st.dirX, st.dirZ);
-      Object.assign(prev, { x: s.x, z: s.z, h: s.h });
-      Object.assign(pose, prev);
       acc = 0; enterT = 0; trauma = 0;
-      chase.yaw = s.h;
       // a portrait phone's cockpit is mostly headliner and dash, so it starts behind the car
       if (mode === null) mode = innerWidth < innerHeight ? 'chase' : 'cockpit';
       y = area.heightAt(s.x, s.z);
       active = true;
-      area.car.parked = false;
+      car.parked = false;
+      model.setLive(true);
       setMode(mode);
       ui.root.dataset.mode = 'drive';
     },
@@ -296,7 +326,8 @@ export function createDriver({ area, keys, stick, ui, player }) {
       active = false;
       releasePedals();
       drawCar(1);
-      area.car.parked = true;
+      car.parked = true;
+      model.setLive(false);
       standBeside();
       player.group.scale.setScalar(0.3);
       hop = { in: false, t: 0 };
@@ -306,10 +337,10 @@ export function createDriver({ area, keys, stick, ui, player }) {
     },
 
     toggleCam() {
-      if (active) setMode(mode === 'cockpit' ? 'chase' : 'cockpit');
+      if (active) setMode(MODES[(MODES.indexOf(mode) + 1) % MODES.length]);
     },
 
-    /** Fast travel: put the car on (x, z) facing h, stopped; a walking Ani lands at its door. */
+    /** Fast travel: put the vehicle on (x, z) facing h, stopped; a walking Ani lands at its door. */
     teleport(x, z, h) {
       vehicle.place(x, z, h);
       Object.assign(prev, { x, z, h });

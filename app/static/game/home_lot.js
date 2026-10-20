@@ -101,6 +101,9 @@ export const PARKED = [
   { row: 2, stalls: [1, 3, 9] },
 ];
 export const RAV4_SPOT = { row: 2, stall: 6 };
+// the garage (fleet.js): the free south-row stalls, nose-in toward our building
+// (not the one in front of the walk), and the bike on the grass by the door
+export const GARAGE = { row: 1, stalls: [3, 4, 7, 9, 11, 13, 14], bike: { x: 49, z: 54, heading: Math.PI / 2 } };
 
 // ---- coming and going ----
 export const ENTRY = { x: 37.5, z: 58.5, dirX: 0, dirZ: -1 };  // on the stoop, facing the lot

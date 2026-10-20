@@ -6,7 +6,8 @@ either axis-aligned {x1, z1, x2, z2} (the lot's colliders) or turned
 {x, z, hw, hd, ry} (buildings along a curving street), stored the same way
 as a center, half-extents and a rotation; or polygons {poly: [[x, z], ...]}
 for buildings with odd footprints. `circles` holds moving solids (the
-parked RAV4) that aren't worth re-gridding. A solid marked `breakable`
+parked vehicles) that aren't worth re-gridding; Ani walks around them and
+the car you're driving bounces off them. A solid marked `breakable`
 (poles, signs) can be knocked down; a broken one is `dead` and ignored.
 
 The town streams in 600 ft chunks, each with its own grid; createWorld()
@@ -91,6 +92,9 @@ function slab(x0, z0, x1, z1, rx1, rz1, rx2, rz2) {
   return t0;
 }
 
+// what a parked vehicle's circle reports as its "box" in a contact: solid, never breakable
+const PARKED = { parked: true };
+
 // first t in 0..1 where a segment crosses a polygon's edge, or null
 function segPoly(x0, z0, x1, z1, P) {
   const dx = x1 - x0, dz = z1 - z0;
@@ -154,13 +158,19 @@ export function createSolids(list, cell = 40) {
       each(x - r, z - r, x + r, z + r, (b) => (found = circleBox(b, x, z, r) !== null));
       return found;
     },
-    /** All overlaps of a circle with boxes (not the moving circles), as push-out contacts. */
+    /** All overlaps of a circle with boxes and the moving circles (parked cars), as push-out contacts. */
     contacts(x, z, r, out) {
       out.length = 0;
       each(x - r, z - r, x + r, z + r, (b) => {
         const c = circleBox(b, x, z, r);
         if (c) { c.box = b; out.push(c); }
       });
+      for (const c of solids.circles) {
+        const dx = x - c.x, dz = z - c.z, R = r + c.r, d2 = dx * dx + dz * dz;
+        if (d2 >= R * R) continue;
+        const d = Math.sqrt(d2) || 1e-6;
+        out.push({ nx: dx / d, nz: dz / d, depth: R - d, box: PARKED });
+      }
       return out;
     },
     /**

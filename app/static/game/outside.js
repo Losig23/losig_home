@@ -17,7 +17,8 @@ takes its place, the same trick that makes the apartment readable.
 import { pencil, addLights, followSun, makeMarker } from './pencil.js';
 import { createBatch, groundViews } from './batch.js';
 import { rng, prism, distToLine, inRect, drawTree, TRUNK } from './scenery.js';
-import { createRav4, drawParkedCar } from './car.js';
+import { createCar, RAV4_SPEC, drawParkedCar } from './car.js';
+import { FLEET } from './fleet.js';
 import { createSolids, createWorld } from './collide.js';
 import { createBreakables } from './breakables.js';
 import { createTown } from './chunks.js';
@@ -402,18 +403,34 @@ export function buildOutside() {
       ci++;
     }
   }
-  // the RAV4 moves, so it isn't a static collider: its three body circles
-  // join the grid's moving solids while it's parked (Ani walks around it)
-  const rav4 = createRav4();
+  // the vehicles: the RAV4 in its stall, the garage (fleet.js) by our building.
+  // They move, so they aren't static colliders: a parked one's body circles join
+  // the grid's moving solids (Ani walks around it), and each has a door to get in at
+  const cars = [];
+  function addCar(spec, x, z, heading) {
+    const model = createCar(spec);
+    const vehicle = createVehicle({ x, z, heading, tune: spec.tune });
+    model.group.position.set(x, 0, z);
+    model.group.rotation.y = heading;
+    scene.add(model.group);
+    const c = { id: spec.id, model, vehicle, parked: true, circles: [] };
+    c.door = { id: `car:${spec.id}`, label: `${spec.verb ?? 'Get in'} · ${spec.name}`, x: 0, z: 0,
+      r: spec.kind === 'bike' ? 2.8 : 3.4, drive: true, car: c };
+    cars.push(c);
+    return c;
+  }
   const spot = stallSpot(LOT.RAV4_SPOT.row, LOT.RAV4_SPOT.stall);
-  const vehicle = createVehicle({ x: spot.x, z: spot.z, heading: spot.heading });
-  rav4.group.position.set(spot.x, 0, spot.z);
-  rav4.group.rotation.y = spot.heading;
-  rav4.group.traverse((m) => {
-    if (m.isMesh && m.geometry.type !== 'PlaneGeometry' && !rav4.cockpit.group.getObjectById(m.id)) m.castShadow = true;
-  });
-  scene.add(rav4.group);
-  const car = { rav4, vehicle, parked: true };
+  const rav4 = addCar(RAV4_SPEC, spot.x, spot.z, spot.heading);
+  let stall = 0;
+  for (const spec of FLEET) {
+    if (spec.kind === 'bike') {
+      const at = LOT.GARAGE.bike;
+      addCar(spec, at.x, at.z, at.heading);
+      continue;
+    }
+    const at = stallSpot(LOT.GARAGE.row, LOT.GARAGE.stalls[stall++]);
+    addCar(spec, at.x, at.z, at.heading);
+  }
 
   // static scenery in 400 ft tiles so off-screen tiles (and ones outside the
   // sun's shadow box) are culled; flat ground as one layered mesh
@@ -425,7 +442,7 @@ export function buildOutside() {
   // drawn in the un-inked overlay like the apartment's room labels, through walls
   const overlay = new THREE.Scene();
   const marker = makeMarker('MY RAV4');
-  marker.position.copy(rav4.group.position).setY(7.2);
+  marker.position.copy(rav4.model.group.position).setY(7.2);
   overlay.add(marker);
   let markerT = 0;
 
@@ -478,12 +495,13 @@ export function buildOutside() {
     onBreak: (box, vx, vz) => breakables.knock(box, vx, vz),
   };
   const townChunks = createTown({ scene, world: solids, breakables, restyle: RESTYLE });
-  const door = { id: 'rav4', label: 'Get in', x: 0, z: 0, r: 3.4, drive: true };
   const circles = [];
 
-  function update(dt, camera, player, driving = false) {
+  // driving: the car is moving; cut: the camera is the high on-foot one, so
+  // anything between it and Ani sinks to the cutaway (the others pull in instead)
+  function update(dt, camera, player, driving = false, cut = !driving) {
     const { x, z, y } = player.state;
-    const s = vehicle.s;
+    const s = area.car.vehicle.s;
     // stream the town around a point that runs ahead of the car
     if (townChunks.bounds && world.bounds.x1 === R.x1) {
       const [x1, z1, x2, z2] = townChunks.bounds;
@@ -499,18 +517,25 @@ export function buildOutside() {
     } else {
       followSun(sun, x, z);
     }
-    // the parked car: Ani collides with it and gets in at the driver's door
-    solids.circles = car.parked ? vehicle.circles(circles) : [];
-    door.x = s.x + Math.cos(s.h) * (rav4.spec.w / 2 + 1.5) + Math.sin(s.h) * 0.6;
-    door.z = s.z - Math.sin(s.h) * (rav4.spec.w / 2 + 1.5) + Math.cos(s.h) * 0.6;
-    marker.visible = car.parked;
+    // parked vehicles: Ani collides with them and gets in at the driver's door
+    circles.length = 0;
+    for (const c of cars) {
+      if (!c.parked) continue;
+      for (const k of c.vehicle.circles(c.circles)) circles.push(k);
+      const v = c.vehicle.s, side = c.model.spec.w / 2 + 1.5;
+      c.door.x = v.x + Math.cos(v.h) * side + Math.sin(v.h) * 0.6;
+      c.door.z = v.z - Math.sin(v.h) * side + Math.cos(v.h) * 0.6;
+    }
+    solids.circles = circles;
+    const r4 = rav4.vehicle.s;
+    marker.visible = rav4.parked;
     markerT += dt;
-    marker.position.set(s.x, 7.2 + Math.sin(markerT * 2.6) * 0.35, s.z);
+    marker.position.set(r4.x, 7.2 + Math.sin(markerT * 2.6) * 0.35, r4.z);
     chest.set(x, y + 3.4, z);
     head.set(x, y + 6.2, z);
     for (const c of cuttables) {
       // driving cameras pull in instead of cutting buildings away
-      const hidden = !driving && (blocks(c.box, camera.position, chest) || blocks(c.box, camera.position, head));
+      const hidden = cut && (blocks(c.box, camera.position, chest) || blocks(c.box, camera.position, head));
       // hold the cut briefly so it doesn't flicker at the edge
       c.hold = hidden ? 0.35 : c.hold - dt;
       const target = c.hold > 0 ? 1 : 0;
@@ -530,14 +555,15 @@ export function buildOutside() {
     colliders,
     solids,
     world,
-    car,
+    car: rav4,          // the vehicle in use (drive.js switches it), the RAV4 to start
+    cars,
     town: townChunks,
     // on foot you can wander a little way into the fog bank (widened to the town once it's known)
     bounds: { x1: R.x1 - 150, z1: R.z1 - 150, x2: R.x2 + 150, z2: R.z2 + 150 },
     bankAt,
     interactables: [
       { id: 'home-door', label: 'Go inside', x: 37.5, z: 63.9, r: 2.4, go: 'apartment' },
-      door,
+      ...cars.map((c) => c.door),
     ],
     entry: LOT.ENTRY,
     speed: WALK_SPEED,

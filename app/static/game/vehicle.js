@@ -7,7 +7,8 @@ Units are feet and seconds; heading is three.js rotation.y, so forward is
 
 - Engine: 0-60 mph in about 4.5 s, then a long pull to 160 mph. Boost
   lifts the top speed to 205 mph and pulls half again as hard. The car is
-  tuned for fun, not to the real RAV4.
+  tuned for fun, not to the real RAV4. TUNE is the RAV4; every other vehicle
+  overrides a few fields (power, top speed, grip, size, weight).
 - Brakes, then reverse: holding brake below ~1 ft/s backs up.
 - Steering: a bicycle model. Lock narrows with speed so the front tires
   never ask for more than about 1.6 g, which keeps 150 mph drivable.
@@ -61,8 +62,9 @@ export const TUNE = {
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const smooth = (a, b, v) => { const k = clamp((v - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
 
-export function createVehicle({ x = 0, z = 0, heading = 0 } = {}) {
-  const T = TUNE;
+/** tune: any TUNE fields this vehicle does differently (each car and the bike has its own). */
+export function createVehicle({ x = 0, z = 0, heading = 0, tune = {} } = {}) {
+  const T = { ...TUNE, ...tune };
   const s = {
     x, z, h: heading,
     vx: 0, vz: 0,
@@ -253,5 +255,5 @@ export function createVehicle({ x = 0, z = 0, heading = 0 } = {}) {
     s.vx = s.vz = s.yaw = s.vf = 0;
   }
 
-  return { s, step, circles, place, stop };
+  return { s, step, circles, place, stop, tune: T };
 }

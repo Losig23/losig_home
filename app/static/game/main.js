@@ -341,11 +341,11 @@ const endSwing = (e) => { if (e.pointerId === swing.id) swing.id = null; };
 renderer.domElement.addEventListener("pointerup", endSwing);
 renderer.domElement.addEventListener("pointercancel", endSwing);
 
-// ---- the car: get in, get out, switch cameras ----
-function getIn() {
+// ---- the vehicles: get in, get out, switch cameras ----
+function getIn(car) {
   resetStick();
   setRunning(false);
-  area.driver.enter();
+  area.driver.enter(car);
   startBlend(0.75);
 }
 
@@ -388,10 +388,10 @@ function findNearest() {
   return best;
 }
 
-// doors travel, the car drives; everything else opens its panel
+// doors travel, vehicles drive; everything else opens its panel
 function use(it) {
   if (it.go) travel(it.go);
-  else if (it.drive) getIn();
+  else if (it.drive) getIn(it.car);
   else openPanel(it);
 }
 
