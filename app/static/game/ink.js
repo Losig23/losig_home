@@ -133,14 +133,20 @@ export function createInk(renderer, camera) {
     mat.uniforms.fade.value.set(start, end);
   }
 
-  function render(scene, overlay, t) {
+  // stats (optional): gets {calls, triangles} of the color render (with its
+  // shadow map) and of the normal render
+  function render(scene, overlay, t, stats = null) {
     // cameras change far plane between areas
     mat.uniforms.near.value = camera.near;
     mat.uniforms.far.value = camera.far;
 
     // 1) color
+    // (three.js resets its counters after drawing the shadow map, so count by hand to include it)
+    const info = renderer.info;
+    if (stats) { info.autoReset = false; info.reset(); }
     renderer.setRenderTarget(colorRT);
     renderer.render(scene, camera);
+    if (stats) { stats.color = { ...info.render }; info.reset(); }
 
     // 2) normals + depth, reusing this frame's shadow map
     const bg = scene.background, fog = scene.fog, autoShadow = renderer.shadowMap.autoUpdate;
@@ -150,6 +156,7 @@ export function createInk(renderer, camera) {
     renderer.shadowMap.autoUpdate = false;
     renderer.setRenderTarget(normalRT);
     renderer.render(scene, camera);
+    if (stats) { stats.normal = { ...info.render }; info.autoReset = true; }
     scene.overrideMaterial = null;
     scene.background = bg;
     scene.fog = fog;

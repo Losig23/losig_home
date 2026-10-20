@@ -18,7 +18,8 @@ distances ease to the current mode's values the same way.
 Outdoors, places.js adds the Places (markers, minimap, routes, arrivals);
 the Places list opens from P or the minimap, and fast travel is a travel()
 within the area: fade out, move the car and Ani, stream the chunks in
-behind the black, fade back.
+behind the black, fade back. Phones also scale their pixel ratio to hold
+the frame rate (dynamic resolution), and ?stats shows the frame budget.
 */import * as THREE from 'three';
 import { buildApartment } from './world.js';
 import { createInk } from './ink.js';
@@ -499,6 +500,63 @@ const start = new URLSearchParams(location.search).get("start") === "outside" ? 
 if (!areas[start]) areas[start] = await loaders[start]();
 enter(start);
 
+// ---- dynamic resolution (phones, outdoors): hold ~50+ fps by trading pixels ----
+// Every 1.5 s the average frame rate decides: under 50 drops the pixel ratio a
+// step (down to 0.7), over 57 for a while tries a step back up (to the 1.5
+// cap). A step up that drops straight back doubles the wait before the next
+// try (8 s up to a minute), so a phone that can't hold a step stops trying it.
+const dyn = { frames: 0, t: 0, last: performance.now(), wait: 4, hold: 8, raised: false, settle: 3 };
+function frameStats() {
+  const now = performance.now();
+  // loading and travel stutter; don't judge the first seconds after them
+  if (travelling || firstFrame) dyn.settle = 3;
+  if (dyn.settle > 0) {
+    dyn.settle -= (now - dyn.last) / 1000;
+    dyn.last = now;
+    dyn.frames = 0;
+    dyn.t = 0;
+    return;
+  }
+  dyn.frames++;
+  dyn.t += (now - dyn.last) / 1000;
+  dyn.last = now;
+  if (dyn.t < 1.5) return;
+  const fps = dyn.frames / dyn.t;
+  dyn.frames = 0;
+  dyn.t = 0;
+  dyn.wait -= 1.5;
+  if (stats) stats.fps = fps;
+  if (!coarse || areaName !== "outside" || travelling || document.hidden) return;
+  const max = Math.min(devicePixelRatio, 1.5), cur = renderer.getPixelRatio();
+  let next = cur;
+  if (fps < 50 && cur > 0.7) {
+    next = Math.max(0.7, cur - 0.15);
+    if (dyn.raised) dyn.hold = Math.min(60, dyn.hold * 2);
+    dyn.wait = dyn.hold;
+  } else if (fps > 57 && cur < max && dyn.wait <= 0) {
+    next = Math.min(max, cur + 0.1);
+    dyn.wait = 4;
+  }
+  dyn.raised = next > cur;
+  if (next !== cur) {
+    renderer.setPixelRatio(next);
+    ink.setSize();
+  }
+}
+
+// ?stats: frame rate, pixel ratio, and draw calls / triangles per pass
+const stats = new URLSearchParams(location.search).has("stats") ? { el: Object.assign(document.createElement("div"), { id: "stats", className: "hud" }) } : null;
+if (stats) {
+  document.body.append(stats.el);
+  setInterval(() => {
+    const c = stats.color, n = stats.normal;
+    if (!c) return;
+    // the color render includes the shadow map's; the normal pass draws exactly the color pass's objects
+    stats.el.textContent = `${Math.round(stats.fps || 0)} fps · ${renderer.getPixelRatio().toFixed(2)}x · `
+      + `color ${n.calls} calls ${Math.round(n.triangles / 1000)}k tris · shadow ${c.calls - n.calls} calls ${Math.round((c.triangles - n.triangles) / 1000)}k`;
+  }, 500);
+}
+
 // ---- loop ----
 const clock = new THREE.Clock();
 let firstFrame = true;
@@ -527,7 +585,8 @@ function tick() {
   area.update?.(dt, camera, player, inCar);
   if (area.guide && !travelling) area.guide.update(dt, player);
 
-  ink.render(area.scene, area.overlay, clock.elapsedTime);
+  ink.render(area.scene, area.overlay, clock.elapsedTime, stats);
+  frameStats();
   if (firstFrame) {
     firstFrame = false;
     document.getElementById("loading").style.display = "none";
