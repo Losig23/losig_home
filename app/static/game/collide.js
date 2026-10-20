@@ -91,6 +91,21 @@ function slab(x0, z0, x1, z1, rx1, rz1, rx2, rz2) {
   return t0;
 }
 
+// first t in 0..1 where a segment crosses a polygon's edge, or null
+function segPoly(x0, z0, x1, z1, P) {
+  const dx = x1 - x0, dz = z1 - z0;
+  let best = null;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const [ax, az] = P[j], [bx, bz] = P[i];
+    const ex = bx - ax, ez = bz - az, den = dx * ez - dz * ex;
+    if (Math.abs(den) < 1e-9) continue;
+    const t = ((ax - x0) * ez - (az - z0) * ex) / den;
+    const u = ((ax - x0) * dz - (az - z0) * dx) / den;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1 && (best === null || t < best)) best = t;
+  }
+  return best;
+}
+
 export function createSolids(list, cell = 40) {
   const boxes = list.map(makeBox);
   const grid = new Map();
@@ -157,9 +172,11 @@ export function createSolids(list, cell = 40) {
       each(Math.min(x0, x1) - pad, Math.min(z0, z1) - pad, Math.max(x0, x1) + pad, Math.max(z0, z1) + pad, (b) => {
         if (filter && !filter(b)) return;
         if (b.poly) {
-          // the camera only needs a conservative answer: treat a polygon as its bounds
-          const t = slab(x0, z0, x1, z1, b.x1 - pad, b.z1 - pad, b.x2 + pad, b.z2 + pad);
-          if (t !== null) best = Math.min(best, t);
+          // first crossing of the footprint's edges, backed off by pad (its bounding
+          // box isn't enough: an L-shaped store's box can cover its own parking lot)
+          if (slab(x0, z0, x1, z1, b.x1 - pad, b.z1 - pad, b.x2 + pad, b.z2 + pad) === null) return;
+          const t = segPoly(x0, z0, x1, z1, b.poly);
+          if (t !== null) best = Math.min(best, Math.max(0, t - pad / (Math.hypot(x1 - x0, z1 - z0) || 1)));
           return;
         }
         // slab test in the box's own axes
