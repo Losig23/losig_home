@@ -412,6 +412,7 @@ async function openPanel(it) {
   body.innerHTML = html;
   if (it.bind) it.bind(body);
   else bindPanel(it.kind, body, () => openPanel(it));
+  body.querySelector("[data-retry]")?.addEventListener("click", (e) => { e.preventDefault(); openPanel(it); });
 }
 
 function closePanel() {
