@@ -21,6 +21,10 @@ replace Phase 2's placeholder houses).
 Run:  python scripts/build_town.py [--refresh]
   --refresh   re-download OSM instead of using instance/town/cache/osm.json
 
+Besides the chunks it writes town/roads.json, the street graph the minimap
+draws and the Places router searches (vertices where ways meet, edges with
+their simplified shapes, a class per edge).
+
 settings.json:
   {"origin": [lat, lon], "ft_per_deg": [ft per deg lon, ft per deg lat],
    "bounds_ft": [x1, z1, x2, z2], "footprints": ["glob", ...],
@@ -744,10 +748,50 @@ def bake(s, osm):
         c = point_chunk(x, z)
         if c is not None:
             c["props"].append([kind, round(x, 1), round(z, 1), round(ry, 3)])
-    return chunks, (I0, J0, I1, J1)
+    return chunks, road_graph(roads, B)
 
 
-def write(chunks, rng_, bounds):
+# ---------------------------------------------------------------- road graph (minimap + routing)
+GRAPH_CLASS = {"collector": 0, "res": 1, "service": 2, "drive": 3}
+
+
+def road_graph(roads, B, pad=400):
+    """The drivable streets as a graph: a vertex wherever ways meet or end, an
+    edge (with its simplified shape) between. Unlike the chunks, the hand-built
+    blocks aren't cut out: the minimap and the router need the whole town.
+
+    Returns {"nodes": [x, z, ...], "edges": [[a, b, class, [x, z, ...between]], ...]}."""
+    use = [r for r in roads if r["look"] in GRAPH_CLASS and len(r["nodes"]) == len(r["pts"]) >= 2]
+    seen = {}
+    for r in use:
+        for k, nid in enumerate(r["nodes"]):
+            # ends always split; a node used twice (two ways, or a way crossing itself) is a junction
+            seen[nid] = seen.get(nid, 0) + (2 if k in (0, len(r["nodes"]) - 1) else 1)
+    index, nodes, edges = {}, [], []
+
+    def vertex(nid, p):
+        if nid not in index:
+            index[nid] = len(nodes) // 2
+            nodes.extend((round(p[0]), round(p[1])))
+        return index[nid]
+
+    inb = lambda p: B[0] - pad <= p[0] <= B[2] + pad and B[1] - pad <= p[1] <= B[3] + pad
+    for r in use:
+        start = 0
+        for k in range(1, len(r["nodes"])):
+            if seen[r["nodes"][k]] < 2 and k < len(r["nodes"]) - 1:
+                continue
+            pts = r["pts"][start:k + 1]
+            if any(inb(p) for p in pts) and sum(math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) for i in range(len(pts) - 1)) > 1:
+                a, b = vertex(r["nodes"][start], pts[0]), vertex(r["nodes"][k], pts[-1])
+                mid = dp(pts, 2.5)[1:-1]
+                edges.append([a, b, GRAPH_CLASS[r["look"]], [round(c) for p in mid for c in p]])
+            start = k
+    print(f"road graph: {len(nodes) // 2} vertices, {len(edges)} edges")
+    return {"nodes": nodes, "edges": edges}
+
+
+def write(chunks, graph, bounds):
     os.makedirs(OUT, exist_ok=True)
     for f in glob.glob(os.path.join(OUT, "c_*.json")):
         os.remove(f)
@@ -764,14 +808,17 @@ def write(chunks, rng_, bounds):
         total += len(body)
     with open(os.path.join(OUT, "index.json"), "w") as f:
         json.dump({"v": 1, "chunk": CHUNK, "bounds": bounds, "chunks": index}, f, separators=(",", ":"))
-    print(f"{len(index)} chunks, {total / 1e6:.2f} MB")
+    with open(os.path.join(OUT, "roads.json"), "w") as f:
+        body = json.dumps({"v": 1, **graph}, separators=(",", ":"))
+        f.write(body)
+    print(f"{len(index)} chunks, {total / 1e6:.2f} MB; roads.json {len(body) / 1e3:.0f} kB")
 
 
 def main():
     s = load_settings()
     osm = fetch_osm(s, "--refresh" in sys.argv)
-    chunks, rng_ = bake(s, osm)
-    write(chunks, rng_, s["bounds_ft"])
+    chunks, graph = bake(s, osm)
+    write(chunks, graph, s["bounds_ft"])
 
 
 if __name__ == "__main__":

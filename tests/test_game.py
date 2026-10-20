@@ -150,6 +150,20 @@ def test_baked_town_is_only_shapes():
         assert words <= _CHUNK_WORDS, (i, j, words - _CHUNK_WORDS)
 
 
+def test_road_graph_is_only_numbers():
+    # the street graph the minimap and the Places router read: vertices, and
+    # edges [a, b, class, [x, z, ...]] in whole feet, nothing else
+    import json
+
+    g = json.loads((GAME_TOWN / "roads.json").read_text())
+    assert set(g) == {"v", "nodes", "edges"}
+    n = len(g["nodes"]) // 2
+    assert n > 1000 and all(isinstance(v, int) for v in g["nodes"])
+    for a, b, k, mid in g["edges"]:
+        assert 0 <= a < n and 0 <= b < n and k in (0, 1, 2, 3)
+        assert len(mid) % 2 == 0 and all(isinstance(v, int) for v in mid)
+
+
 def test_bake_reads_the_place_from_untracked_settings():
     # the origin and bounds live in instance/ (gitignored), never in the script
     src = BAKE_SCRIPT.read_text()
