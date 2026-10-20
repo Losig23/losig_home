@@ -108,9 +108,13 @@ function startBlend(dur) {
   blend.fov = camera.fov;
 }
 
+// outdoors on foot the follow camera can swing around Ani (drag the mouse, or a
+// second finger on touch); the apartment keeps its fixed dollhouse angle
+const look = { yaw: 0 };
 function followPose(dt, snap = false) {
   const { x, y, z } = player.state;
-  camTarget.set(x + camOff.x, y + camOff.y, z + camOff.z);
+  const c = Math.cos(look.yaw), sn = Math.sin(look.yaw);
+  camTarget.set(x + camOff.x * c + camOff.z * sn, y + camOff.y, z - camOff.x * sn + camOff.z * c);
   if (snap) followPos.copy(camTarget);
   else followPos.lerp(camTarget, 1 - Math.pow(0.001, dt));
   want.position.copy(followPos);
@@ -184,6 +188,7 @@ function setPixelRatio(name) {
 function enter(name) {
   area = areas[name];
   areaName = name;
+  look.yaw = 0;
   document.body.dataset.area = name;
   setPixelRatio(name);
   area.scene.add(player.group); // re-parents out of the previous area's scene
@@ -309,11 +314,32 @@ renderer.domElement.addEventListener("pointercancel", releaseStick);
 // the speech bubble doubles as the interact button on touch
 promptEl.addEventListener("click", () => { if (!panelOpen && nearest) use(nearest); });
 
+// screen directions (right, toward the camera) turned into the world by the camera's swing
 const dir = () => {
-  const x = ((keys.d || keys.arrowright) ? 1 : 0) - ((keys.a || keys.arrowleft) ? 1 : 0);
-  const z = ((keys.s || keys.arrowdown) ? 1 : 0) - ((keys.w || keys.arrowup) ? 1 : 0);
-  return x || z ? { x, z } : { x: stick.x, z: stick.z };
+  let x = ((keys.d || keys.arrowright) ? 1 : 0) - ((keys.a || keys.arrowleft) ? 1 : 0);
+  let z = ((keys.s || keys.arrowdown) ? 1 : 0) - ((keys.w || keys.arrowup) ? 1 : 0);
+  if (!x && !z) { x = stick.x; z = stick.z; }
+  const c = Math.cos(look.yaw), sn = Math.sin(look.yaw);
+  return { x: x * c + z * sn, z: -x * sn + z * c };
 };
+
+// swinging the camera: a mouse drag, or a second finger while the first walks
+const swing = { id: null, x: 0 };
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  if (areaName !== "outside" || driving() || swing.id !== null) return;
+  if (e.pointerType !== "mouse" && (stick.id === null || stick.id === e.pointerId)) return;
+  swing.id = e.pointerId;
+  swing.x = e.clientX;
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+});
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (e.pointerId !== swing.id) return;
+  look.yaw -= (e.clientX - swing.x) * 0.006;
+  swing.x = e.clientX;
+});
+const endSwing = (e) => { if (e.pointerId === swing.id) swing.id = null; };
+renderer.domElement.addEventListener("pointerup", endSwing);
+renderer.domElement.addEventListener("pointercancel", endSwing);
 
 // ---- the car: get in, get out, switch cameras ----
 function getIn() {
