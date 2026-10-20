@@ -322,7 +322,11 @@ export function buildOutside() {
   const R = NEAR.REGION;
   const groundBatch = createBatch();
   const ground = groundViews(groundBatch);
-  ground.grass.flat((R.x1 + R.x2) / 2, 0, (R.z1 + R.z2) / 2, R.x2 - R.x1 + GRASS_REACH * 2, R.z2 - R.z1 + GRASS_REACH * 2, GRASS);
+  // cut into ~500 ft squares: one quad that size loses the depth fight with
+  // the roads on it on some GPUs, and the grass flickered through
+  const gw = R.x2 - R.x1 + GRASS_REACH * 2, gd = R.z2 - R.z1 + GRASS_REACH * 2;
+  ground.grass.geo(new THREE.PlaneGeometry(gw, gd, Math.ceil(gw / 500), Math.ceil(gd / 500)).rotateX(-Math.PI / 2),
+    GRASS, (R.x1 + R.x2) / 2, 0, (R.z1 + R.z2) / 2);
 
   const colliders = [];
   const cuttables = [];

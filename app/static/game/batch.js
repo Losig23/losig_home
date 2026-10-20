@@ -20,14 +20,15 @@ export const VERTEX_COLORED = pencil(0xffffff, { vertexColors: true });
 // of a foot apart, which the depth buffer can't separate a few hundred feet
 // out from a driver's-eye camera. Every ground vertex carries a `layer`
 // (0 = paint ... 6 = grass) and the shader pushes deeper layers back by a
-// fixed depth step, so the higher layer always wins, at any distance, with
+// fixed depth step (1e-5 of clip depth: 4e-6 wasn't enough margin on every
+// GPU), so the higher layer always wins, at any distance, with
 // one material and one draw call for the lot. Fog and lighting are untouched
 // (they use the real position); the ink pass's own depth render ignores it.
 export const GROUND = pencil(0xffffff, { vertexColors: true });
 GROUND.onBeforeCompile = (shader) => {
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\nattribute float layer;')
-    .replace('#include <project_vertex>', '#include <project_vertex>\n\tgl_Position.z += layer * 4e-6 * gl_Position.w;');
+    .replace('#include <project_vertex>', '#include <project_vertex>\n\tgl_Position.z += layer * 1e-5 * gl_Position.w;');
 };
 GROUND.customProgramCacheKey = () => 'ground-layers';
 export const LAYER = { paint: 0, lots: 1, streets: 2, drives: 3, landcover: 4, water: 5, grass: 6 };
