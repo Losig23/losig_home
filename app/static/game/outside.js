@@ -54,6 +54,7 @@ const WALK_H = 0.25;      // sidewalks and walks are a step up from the grass
 const WALK_SPEED = 9;     // ft/s on foot outside (a brisk walk; the apartment is 6.5)
 const RUN_SPEED = 30;     // with run on (R / the Run button): a flat-out sprint to the car
 const FOG_BANK = 400;     // ft past the edge of the town where the fog closes in
+const GRASS_REACH = 18000; // ft of grass past the hand-built blocks: the whole town, plus fog
 
 
 // ---- ground: streets, curbs, sidewalks, lot ----
@@ -314,12 +315,13 @@ export function buildOutside() {
   const sun = addLights(scene, { x: LOT.ENTRY.x, z: LOT.ENTRY.z, extent: 95, far: 320, reach: 4, mapSize: touch ? 1024 : 2048 });
 
   // flat ground is one mesh in depth layers (batch.js GROUND): paint over lots
-  // over streets over drives over fields over water over grass. The grass
-  // runs on into the fog past the map.
+  // over streets over drives over fields over water over grass. The grass is
+  // one quad under the whole town (the chunks only draw what's on top of it)
+  // and runs on into the fog bank past the edge.
   const R = NEAR.REGION;
   const groundBatch = createBatch();
   const ground = groundViews(groundBatch);
-  ground.grass.flat((R.x1 + R.x2) / 2, 0, (R.z1 + R.z2) / 2, R.x2 - R.x1 + 4000, R.z2 - R.z1 + 4000, GRASS);
+  ground.grass.flat((R.x1 + R.x2) / 2, 0, (R.z1 + R.z2) / 2, R.x2 - R.x1 + GRASS_REACH * 2, R.z2 - R.z1 + GRASS_REACH * 2, GRASS);
 
   const colliders = [];
   const cuttables = [];
