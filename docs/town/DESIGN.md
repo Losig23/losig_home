@@ -183,17 +183,22 @@ numbers only, and that the Places carry only the generic names.
     solid.
 - **Cameras:** every camera writes a wanted pose each frame and `main.js`
   blends any change (0.75 s getting in, 0.6 s getting out, 0.4 s toggling).
-  `C` or the camera chip cycles three on foot outdoors and three driving.
+  `C` or the camera chip cycles three on foot (indoors and out) and three
+  driving.
   - On foot, overhead: the follow camera, closer outdoors (27 ft up, 25
-    back). It swings around Ani (drag the mouse, or a second finger on
-    touch) and walking turns with it. The apartment only has this one, at
-    its fixed angle.
-  - On foot, third person: 11 ft behind Ani and 6 ft up on a lagging yaw,
-    pulled in off walls like the chase cam. First person: Ani's eyes
-    (Ani hidden). In both, walking works like driving: W/S forward and
-    back, A/D turn (the stick: up/down and sideways), a drag turns and
-    looks up and down, nothing gets cut away, and fog and ink reach
-    further (fog 260–950 ft).
+    back). Outdoors it swings around Ani (drag the mouse, or a second
+    finger on touch) and walking turns with it; indoors it keeps the
+    apartment's fixed dollhouse angle.
+  - On foot, third person: behind Ani on a lagging yaw (11 ft back and
+    6 ft up outdoors, 6 ft back and 5.3 ft up indoors), pulled in off
+    walls like the chase cam. First person: Ani's eyes (Ani hidden). In
+    both, walking works like driving: W/S forward and back, A/D turn (the
+    stick: up/down and sideways), a drag turns and looks up and down, and
+    nothing gets cut away. Outdoors fog and ink reach further (fog
+    260–950 ft). Indoors they bring up the apartment's upper layer
+    (`world.js`: the walls from 4 ft to the 8 ft ceiling, the tops of the
+    doors, cabinets and mirror, and the ceiling, two draw calls, casting no
+    shadows so the rooms stay lit the same) and hide the room labels.
   - Cockpit (`drive.js`, the default driving camera): at the driver's eye,
     glancing a little into turns, FOV widening slightly with speed. Phones
     in portrait start in chase instead, because a portrait cockpit is
@@ -215,8 +220,9 @@ numbers only, and that the Places carry only the generic names.
   collision grid as moving circles: Ani walks around them and the one
   you're driving bounces off them. Fast travel takes the last vehicle you
   drove.
-- **The garage** (`fleet.js`, parked in the south row's free stalls, nose
-  toward our building, and the bike on the grass by the door): toy
+- **The garage** (`fleet.js`, in every other stall of the south row, nose
+  toward our building, and the bike on the grass by the door; since the
+  filler cars were removed they're the only cars in the lot): toy
   primitive versions, no logos, each with its tell (the Ferrari's red
   wedge and side intakes, the BMW's kidney grille, the future car's
   canopy, fin and cyan strips, the Jaguar's long hood, the Rolls-Royce's
@@ -398,6 +404,8 @@ numbers only, and that the Places carry only the generic names.
      flicker fixed, the camera after fast travel fixed, and the guest gym
      and meal panels reading the public week's real shape (with a retry
      for a server that's waking up).
+   - Then: the twenty filler cars removed, so only ours park in the lot,
+     and the three on-foot cameras in the apartment too.
 5. **Life in town** (next): traffic and pedestrians on the street graph,
    signals that cycle, time of day with lights, and a way home from the
    lot to the apartment door.
@@ -446,3 +454,7 @@ numbers only, and that the Places carry only the generic names.
 | ![The high chase camera on a route](phase4-high-cam.jpg) | ![On foot, third person](phase4-third-person.jpg) |
 
 ![On foot, first person](phase4-first-person.jpg)
+
+| | |
+|---|---|
+| ![Only our cars in the lot](phase4-lot-garage.jpg) | ![Third person in the apartment](phase4-apartment-third.jpg) |
