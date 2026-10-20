@@ -25,6 +25,7 @@ import { createVehicle } from './vehicle.js';
 import { buildTown } from './town.js';
 import * as LOT from './home_lot.js';
 import * as NEAR from './nearby.js';
+import { buildPlaceProps, onPad, RESTYLE } from './places.js';
 
 const SKY = 0xdde9ec;            // same haze as the apartment
 const GRASS = 0xa9c98b;
@@ -333,6 +334,8 @@ export function buildOutside() {
   const breakables = createBreakables(scene);
   const homeProps = breakables.group();
   const town = buildTown({ scene, b, ground, props: homeProps, colliders, cuttables, cutH: CUT_H });
+  // parking pads and the gas canopy for the Places (places.js)
+  buildPlaceProps({ b, ground, colliders });
 
   for (const bd of LOT.BUILDINGS) {
     const built = buildBuilding(bd);
@@ -463,13 +466,14 @@ export function buildOutside() {
   const solids = createWorld(createSolids(colliders));
   const world = {
     solids,
-    // pavement: the hand-built raster here, the chunks' everywhere else (unloaded counts as road)
-    surface: (x, z) => (inRegion(x, z) ? town.paved(x, z) : townChunks.paved(x, z) ?? true),
+    // pavement: the hand-built raster here, the chunks' everywhere else (unloaded counts as road),
+    // and the Places' parking pads
+    surface: (x, z) => onPad(x, z) || (inRegion(x, z) ? town.paved(x, z) : townChunks.paved(x, z) ?? true),
     // until the town index arrives, the hand-built area is the whole map
     bounds: { ...R, margin: FOG_BANK },
     onBreak: (box, vx, vz) => breakables.knock(box, vx, vz),
   };
-  const townChunks = createTown({ scene, world: solids, breakables });
+  const townChunks = createTown({ scene, world: solids, breakables, restyle: RESTYLE });
   const door = { id: 'rav4', label: 'Get in', x: 0, z: 0, r: 3.4, drive: true };
   const circles = [];
 

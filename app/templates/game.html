@@ -83,6 +83,7 @@
     font-size: 1.15rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
     opacity: 0; pointer-events: none; transition: opacity .35s, transform .4s cubic-bezier(.3,1.4,.6,1); }
   #place.show { opacity: 1; transform: translate(-50%, 0); }
+  #place small { display: block; font-size: .6rem; letter-spacing: .24em; opacity: .6; text-align: center; margin-bottom: -2px; }
   /* map data credit (OpenStreetMap, ODbL), only outdoors */
   #credit { position: fixed; z-index: 10; top: 8px; left: 50%; transform: translateX(-50%); display: none;
     font-size: .68rem; color: var(--ink); opacity: .7; white-space: nowrap; }
@@ -96,7 +97,8 @@
   #stick .knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
     border-radius: 50%; border: 3px solid var(--ink); background: var(--paper);
     box-shadow: 3px 3px 0 rgba(42,36,51,.35); }
-  .touch-only, body.touch .key-only { display: none; }
+  .touch-only, body.touch .key-only, .out-only { display: none; }
+  body[data-area="outside"] .out-only { display: inline; }
   body.touch .touch-only { display: inline; }
   body.touch #prompt { cursor: pointer; padding: 12px 22px; -webkit-tap-highlight-color: transparent; }
   body.touch #prompt { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -154,8 +156,64 @@
   body.touch[data-mode="drive"] #speedo { top: 14px; left: 16px; bottom: auto; right: auto; width: 92px; height: 92px; }
   body.touch[data-mode="drive"] #drivetop { top: 14px; }
   body.touch #drivetop button { padding: 9px 16px; font-size: .95rem; }
-  body.touch[data-mode="drive"] #credit { top: 66px; right: 14px; left: auto; transform: none; }
+  body.touch #credit { top: auto; bottom: 2px; left: 50%; right: auto; transform: translateX(-50%); font-size: .6rem; }
   body.touch #outBtn.off .hint { display: none; }   /* grayed out says enough on a phone */
+  /* ---- places (outdoors): markers, minimap, turn card, the Places list ---- */
+  #marks, #map, #turn { display: none; }
+  body[data-area="outside"] #marks, body[data-area="outside"] #map { display: block; }
+  body[data-area="outside"] #turn { display: flex; }
+  #marks { position: fixed; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
+  .mark { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 5px; white-space: nowrap;
+    background: var(--paper); color: var(--ink); border: 2.5px solid var(--ink); border-radius: 999px;
+    padding: 2px 10px 2px 6px; font-size: .78rem; box-shadow: 3px 3px 0 rgba(42,36,51,.35); will-change: transform; }
+  .mark::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 9px; height: 9px; background: inherit;
+    border-right: 2.5px solid var(--ink); border-bottom: 2.5px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
+  .mark b { font-weight: 800; letter-spacing: .06em; }
+  .mark .dist { font-weight: 800; opacity: .65; }
+  .mark .ico { font-size: .9rem; line-height: 1; }
+  .mark .arrow { display: none; font-weight: 800; }
+  .mark.edge::after { display: none; }
+  .mark.edge .arrow { display: inline-block; }
+  .mark.target { background: var(--accent); color: #fff; }
+  .mark.target .dist { opacity: .85; }
+  #map { position: fixed; z-index: 10; left: 16px; bottom: 58px; width: 168px; height: 168px; padding: 0;
+    border-radius: 50%; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  #map canvas { display: block; width: 100%; height: 100%; border-radius: 50%; }
+  #map .tab { position: absolute; bottom: -11px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper);
+    border-radius: 999px; padding: 1px 10px; font-size: .7rem; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
+  #map .tab .key { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 0 5px; margin-right: 5px; }
+  #map:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(42,36,51,.35); }
+  #turn { top: 34px; left: 50%; transform: translate(-50%, -8px); align-items: center; gap: 10px; border-radius: 16px;
+    padding: 5px 16px 6px 10px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .3s, background .2s; }
+  #turn.show { opacity: 1; transform: translate(-50%, 0); }
+  #turn .glyph { font-size: 1.9rem; font-weight: 800; line-height: 1; min-width: 1.1em; text-align: center; }
+  #turn .what { display: block; font-weight: 800; font-size: 1rem; white-space: nowrap; }
+  #turn .to { display: block; font-size: .7rem; font-weight: 800; letter-spacing: .08em; opacity: .6; white-space: nowrap; }
+  #turn.soon { background: var(--blue); color: #fff; }
+  body.touch #map { width: 118px; height: 118px; left: auto; right: 16px; bottom: auto; top: 14px; }
+  body.touch[data-mode="drive"] #map { top: 70px; }
+  @media (min-width: 601px) { body.touch:not([data-mode="drive"]) #map { top: 58px; } }   /* under the login pill */
+  /* landscape phones: between the chips and the pedals, lined up over Drift */
+  @media (orientation: landscape) and (max-height: 500px) {
+    body.touch[data-mode="drive"] #map { width: 92px; height: 92px; top: 62px; } }
+  @media (orientation: landscape) and (max-height: 345px) { body.touch[data-mode="drive"] #map { display: none; } }
+  body.touch[data-mode="drive"] #turn { top: 124px; left: 16px; transform: translateY(-8px); }
+  body.touch[data-mode="drive"] #turn.show { transform: none; }
+  @media (orientation: landscape) {
+    body.touch[data-mode="drive"] #turn { top: 14px; left: 50%; transform: translate(-50%, -8px); }
+    body.touch[data-mode="drive"] #turn.show { transform: translateX(-50%); } }
+  #panelBody .plist { list-style: none; padding: 0; margin: 8px 0; }
+  #panelBody .plist li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 7px 0; background: #fff;
+    border: 2px solid var(--ink); border-radius: 12px; }
+  #panelBody .plist li.on { background: #e6edff; }
+  #panelBody .plist .ico { font-size: 1.3rem; width: 1.5em; text-align: center; }
+  #panelBody .plist .nm { flex: 1; display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+  #panelBody .plist small { opacity: .65; font-size: .8rem; }
+  #panelBody .pbtn { font: inherit; font-weight: 800; font-size: .85rem; padding: 3px 12px; border: 2.5px solid var(--ink);
+    border-radius: 999px; background: var(--blue); color: #fff; cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
+  #panelBody .pbtn.go { background: var(--accent); }
+  #panelBody .pbtn:active { transform: translate(2px, 2px); box-shadow: none; }
+  #panelBody p.arrive { font-weight: 800; }
   @media (max-width: 600px) { #title .sub, #help { display: none; }
     #authpill { top: auto; right: auto; bottom: 14px; left: 16px; }
     #credit { left: auto; right: 12px; transform: none; }
@@ -170,7 +228,7 @@
 
 <div class="hud" id="title"><b>losig_home</b><div class="sub">walk around, press E on things</div></div>
 <div class="hud" id="authpill">…</div>
-<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>Esc</b> — close</span><span class="touch-only">drag anywhere — move · tap the bubble — interact</span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
+<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>Esc</b> — close<span class="out-only"> · <b>P</b> — places</span></span><span class="touch-only">drag anywhere — move · tap the bubble — interact<span class="out-only"> · tap the map — places</span></span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>P</b> — places · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
 <div class="hud" id="exit"><a href="/">← back to site</a></div>
 <button class="hud" id="run" type="button" aria-pressed="false"><span class="key key-only">R</span><span class="touch-only">🏃</span>run</button>
 <div class="hud" id="prompt" role="button"><span class="key"><span class="key-only">E</span><span class="touch-only">tap</span></span><span id="promptLabel"></span></div>
@@ -187,6 +245,9 @@
   <button class="hud pedal" id="gas" type="button">gas</button>
 </div>
 <div class="hud" id="place" aria-live="polite"></div>
+<div id="marks" aria-hidden="true"></div>
+<button class="hud" id="map" type="button" aria-label="Places"><canvas id="mapCanvas"></canvas><span class="tab"><span class="key key-only">P</span>places</span></button>
+<div class="hud" id="turn" aria-live="polite"><span class="glyph"></span><span><span class="what"></span><span class="to"></span></span></div>
 <div id="credit">map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, buildings © <a href="https://github.com/microsoft/GlobalMLBuildingFootprints" target="_blank" rel="noopener">Microsoft</a></div>
 
 <aside id="panel" aria-label="interaction panel">

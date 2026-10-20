@@ -44,7 +44,8 @@ def test_public_music_is_not_login_gated(anon_client, client):
 def test_game_static_modules_exist(anon_client):
     for mod in ("main.js", "apartment.js", "world.js", "player.js", "panels.js", "pencil.js", "ink.js",
                 "outside.js", "home_lot.js", "car.js", "batch.js", "nearby.js", "town.js", "scenery.js",
-                "collide.js", "vehicle.js", "drive.js", "chunks.js", "breakables.js"):
+                "collide.js", "vehicle.js", "drive.js", "chunks.js", "breakables.js",
+                "roads.js", "places.js", "minimap.js", "route.js"):
         r = anon_client.get(f"/static/game/{mod}")
         assert r.status_code == 200, mod
         assert b"import" in r.data or b"export" in r.data, mod
@@ -55,6 +56,21 @@ def test_game_page_has_no_private_data(anon_client):
     html = anon_client.get("/game").get_data(as_text=True)
     assert "user_id" not in html
     assert "photo" not in html.lower()
+
+
+def test_game_page_has_places_hud(anon_client):
+    # outdoors: place markers, the minimap sticker, the turn card, and the boost pedal
+    html = anon_client.get("/game").get_data(as_text=True)
+    for el in ('id="marks"', 'id="map"', 'id="mapCanvas"', 'id="turn"', 'id="boost"'):
+        assert el in html, el
+
+
+def test_places_are_generic(anon_client):
+    # the Places carry generic names only, positioned in feet like the rest of the outdoors
+    src = (GAME_STATIC / "places.js").read_text(encoding="utf-8")
+    names = re.findall(r"name: '([^']+)'", src)
+    assert names == ["Home", "Work", "Gym", "Gas", "Groceries (east)", "Groceries (west)", "Big-box store"]
+    assert not _place_hits(src)
 
 
 def test_game_page_has_travel_hud(anon_client):

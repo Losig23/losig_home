@@ -14,6 +14,9 @@ Every camera (on foot, cockpit, chase) writes a wanted pose each frame;
 a mode change captures where the camera is and blends to the new pose, so
 getting in, getting out and toggling views never cut. Fog and ink fade
 distances ease to the current mode's values the same way.
+
+Outdoors, places.js adds the Places (markers, minimap, routes, arrivals);
+the Places list opens from P or the minimap.
 */import * as THREE from 'three';
 import { buildApartment } from './world.js';
 import { createInk } from './ink.js';
@@ -26,7 +29,7 @@ const promptEl = document.getElementById("prompt");
 const promptLabel = document.getElementById("promptLabel");
 const panel = document.getElementById("panel");
 const panelTitle = document.getElementById("panelTitle");
-const panelBody = document.getElementById("panelBody");
+let panelBody = document.getElementById("panelBody");
 const authPill = document.getElementById("authpill");
 const fadeEl = document.getElementById("fade");
 const placeEl = document.getElementById("place");
@@ -65,9 +68,16 @@ await Promise.race([
 const areas = { apartment: buildApartment() };
 const loaders = {
   outside: async () => {
-    const [{ buildOutside }, { createDriver }] = await Promise.all([import('./outside.js'), import('./drive.js')]);
+    const [{ buildOutside }, { createDriver }, places] = await Promise.all([import('./outside.js'), import('./drive.js'), import('./places.js')]);
     const a = buildOutside();
     a.driver = createDriver({ area: a, keys, stick, ui: driveUI, player });
+    a.places = places;
+    a.guide = places.createGuide({
+      area: a, camera,
+      ui: { marks: $("marks"), map: $("mapCanvas"), turn: $("turn") },
+      onArrive: (p) => arrive(p),
+      onBanner: (name) => showPlace(name, "entering"),
+    });
     return a;
   },
 };
@@ -218,6 +228,8 @@ addEventListener("keydown", (e) => {
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
   keys[k === " " ? " " : k] = true;
   if (e.repeat) return;
+  if (k === "p" && area?.guide) { if (panelKind === "places") closePanel(); else openPlaces(); return; }
+  if (k === "escape") closePanel();
   if (driving()) {
     if (k === "e") getOut();
     if (k === "c") toggleCam();
@@ -226,7 +238,6 @@ addEventListener("keydown", (e) => {
   if (k === "r") setRunning(!running);
   if (k === "e" && !panelOpen && nearest) use(nearest);
   else if (k === "e" && panelOpen) closePanel();
-  if (k === "escape") closePanel();
 });
 addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
 // a key held while the tab loses focus never sends its keyup
@@ -355,17 +366,23 @@ function use(it) {
   else openPanel(it);
 }
 
+// it: an interactable ({kind}), or a panel of its own ({kind, render, bind})
 async function openPanel(it) {
   panelOpen = true;
   panelKind = it.kind;
   panelTitle.textContent = "…";
   panelBody.innerHTML = `<p class="muted">Loading…</p>`;
   panel.classList.add("open");
-  const { title, html } = await renderPanel(it.kind, authed);
+  const { title, html } = await (it.render ? it.render() : renderPanel(it.kind, authed));
   if (!panelOpen || panelKind !== it.kind) return; // user moved on
   panelTitle.textContent = title;
-  panelBody.innerHTML = html;
-  bindPanel(it.kind, panelBody, () => openPanel(it));
+  // a fresh body each time, so listeners bound to the last one go with it
+  const body = panelBody.cloneNode(false);
+  panelBody.replaceWith(body);
+  panelBody = body;
+  body.innerHTML = html;
+  if (it.bind) it.bind(body);
+  else bindPanel(it.kind, body, () => openPanel(it));
 }
 
 function closePanel() {
@@ -397,12 +414,49 @@ async function travel(to) {
   travelling = false;
 }
 
-function showPlace(text) {
+function showPlace(text, kicker = "") {
   if (!text) return;
-  placeEl.textContent = text;
+  placeEl.innerHTML = "";
+  if (kicker) placeEl.append(Object.assign(document.createElement("small"), { textContent: kicker }));
+  placeEl.append(text);
   placeEl.classList.add("show");
   clearTimeout(placeTimer);
   placeTimer = setTimeout(() => placeEl.classList.remove("show"), 2600);
+}
+
+// ---- places: the list, arriving, fast travel ----
+const placeActions = {
+  route(id) {
+    area.guide.routeTo(id);
+    closePanel();
+  },
+  clear() {
+    area.guide.clearRoute();
+    if (panelKind === "places") openPlaces();
+    else closePanel();
+  },
+};
+
+function openPlaces() {
+  if (!area?.guide) return;
+  openPanel({
+    kind: "places",
+    render: async () => area.places.placesPanel(area.guide),
+    bind: (root) => area.places.bindPlaces(root, placeActions),
+  });
+}
+$("map").addEventListener("click", (e) => {
+  e.currentTarget.blur(); // or Space (the handbrake) would press it again
+  if (panelKind === "places") closePanel(); else openPlaces();
+});
+
+function arrive(p) {
+  showPlace(p.name);
+  openPanel({
+    kind: `arrive:${p.id}`,
+    render: () => area.places.arrivalPanel(p, area.guide, authed),
+    bind: (root) => area.places.bindPlaces(root, placeActions),
+  });
 }
 
 // /game?start=outside drops you straight into the lot (handy for testing)
@@ -436,6 +490,7 @@ function tick() {
   updateView(dt, inCar);
 
   area.update?.(dt, camera, player, inCar);
+  if (area.guide && !travelling) area.guide.update(dt, player);
 
   ink.render(area.scene, area.overlay, clock.elapsedTime);
   if (firstFrame) {

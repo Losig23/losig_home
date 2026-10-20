@@ -48,7 +48,7 @@ const AISLE = 58, STALL = 9; // an aisle's paved band (22 ft lane, 18 ft stalls 
 
 const pairs = (flat) => { const out = []; for (let i = 0; i < flat.length; i += 2) out.push([flat[i], flat[i + 1]]); return out; };
 
-export function createTown({ scene, world, breakables, base = '/static/game/town/' }) {
+export function createTown({ scene, world, breakables, restyle = [], base = '/static/game/town/' }) {
   let index = null;
   let have = new Set();
   const chunks = new Map();        // "i,j" -> chunk
@@ -119,7 +119,11 @@ export function createTown({ scene, world, breakables, base = '/static/game/town
     }
     yield;
     let n = 0;
-    for (const [x, z, w, d2, ry, h, roof, siding, roofC, shop] of d.houses || []) {
+    for (const house of d.houses || []) {
+      // a few footprints get a hand-picked look, or are drawn by places.js instead
+      const fix = restyle.find((f) => Math.abs(f.x - house[0]) < 1 && Math.abs(f.z - house[1]) < 1);
+      if (fix?.skip) continue;
+      const [x, z, w, d2, ry, h, roof, siding, roofC, shop] = fix ? Object.assign([...house], fix.set) : house;
       drawBuilding(b, {
         x, z, ry, w, d: d2, h, roof: ROOFS[roof],
         c: shop ? SHOP_WALL[siding % SHOP_WALL.length] : HOUSE_SIDING[siding % HOUSE_SIDING.length],
