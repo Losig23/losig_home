@@ -15,8 +15,10 @@ loop, the two driving cameras and the dashboard HUD.
   C or the camera sticker toggles; main.js blends every camera change.
   Hits shake both (trauma squared, so small taps barely register).
 - Touch: the floating stick steers (sideways only, left side of the
-  screen); Gas, Brake/Reverse and Drift stickers on the right each track
-  their own finger, so any combination can be held at once.
+  screen); Gas, Brake/Reverse, Drift and Boost stickers on the right each
+  track their own finger, so any combination can be held at once.
+- Boost (Shift, or the sticker) raises the top speed to 205 mph and pulls
+  harder; the cameras widen a little while it's on.
 */
 import * as THREE from 'three';
 import { MPH } from './vehicle.js';
@@ -44,13 +46,13 @@ export function createDriver({ area, keys, stick, ui, player }) {
   let mode = null;              // first time in: cockpit, or chase on a portrait phone
   let enterT = 0;
   let trauma = 0, shakeT = 0;
-  let y = 0, roll = 0, pitch = 0;
+  let y = 0, roll = 0, pitch = 0, boostK = 0;
   let hop = null;               // Ani stepping in or out
   const chase = { yaw: s.h, dist: 22, lift: 7.5 };
 
   // ---- touch pedals: each sticker remembers which fingers are on it ----
-  const pedals = { gas: new Set(), brake: new Set(), drift: new Set() };
-  for (const [name, el] of Object.entries({ gas: ui.gas, brake: ui.brake, drift: ui.drift })) {
+  const pedals = { gas: new Set(), brake: new Set(), drift: new Set(), boost: new Set() };
+  for (const [name, el] of Object.entries({ gas: ui.gas, brake: ui.brake, drift: ui.drift, boost: ui.boost })) {
     const up = (e) => {
       pedals[name].delete(e.pointerId);
       el.classList.toggle('on', pedals[name].size > 0);
@@ -78,6 +80,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
       brake: (k.s || k.arrowdown || pedals.brake.size) ? 1 : 0,
       steer: steer || stick.x,
       handbrake: !!(k[' '] || pedals.drift.size),
+      boost: !!(k.shift || pedals.boost.size),
     };
   }
 
@@ -134,6 +137,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
     pose.h = prev.h + (s.h - prev.h) * a;
     y += (area.heightAt(pose.x, pose.z) - y) * ease(22, dt);
     trauma = Math.max(0, trauma - dt * 1.4);
+    boostK += ((s.boosting ? 1 : 0) - boostK) * ease(3, dt);
     shakeT += dt;
     drawCar(dt);
     hud();
@@ -167,7 +171,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
     out.quaternion.setFromEuler(_e);
     rav4.chassis.getWorldQuaternion(_q);
     out.quaternion.premultiply(_q);
-    out.fov = fovFor(62 + 6 * Math.min(1, Math.abs(s.vf) / (120 * MPH)), aspect);
+    out.fov = fovFor(62 + 6 * Math.min(1, Math.abs(s.vf) / (120 * MPH)) + 5 * boostK, aspect);
     out.near = 0.25;
   }
 
@@ -193,7 +197,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
     _m.lookAt(out.position, look, THREE.Object3D.DEFAULT_UP);
     out.quaternion.setFromRotationMatrix(_m);
     if (r) out.quaternion.multiply(_q.setFromAxisAngle(new THREE.Vector3(0, 0, 1), r));
-    out.fov = fovFor(58 + 16 * Math.min(1, speed / (130 * MPH)), aspect);
+    out.fov = fovFor(58 + 16 * Math.min(1, speed / (130 * MPH)) + 6 * boostK, aspect);
     out.near = 0.5;
   }
 
@@ -220,7 +224,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
       ui.dial.style.setProperty('--k', Math.min(1, mph / 160).toFixed(3));
       ui.out.classList.toggle('off', mph >= EXIT_MPH);
     }
-    const gear = s.vf < -1 ? 'R' : s.drifting ? 'DRIFT' : '';
+    const gear = s.vf < -1 ? 'R' : s.drifting ? 'DRIFT' : s.boosting ? 'BOOST' : '';
     if (gear !== shownGear) {
       shownGear = gear;
       ui.gear.textContent = gear;

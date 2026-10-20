@@ -34,7 +34,7 @@ const runBtn = document.getElementById("run");
 const $ = (id) => document.getElementById(id);
 const driveUI = {
   root: document.body,
-  gas: $("gas"), brake: $("brake"), drift: $("drift"),
+  gas: $("gas"), brake: $("brake"), drift: $("drift"), boost: $("boost"),
   cam: $("camBtn"), out: $("outBtn"),
   mph: $("mph"), dial: $("speedo"), gear: $("gear"),
 };

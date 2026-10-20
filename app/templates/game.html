@@ -133,7 +133,7 @@
   @keyframes nudge { 25% { translate: -5px 0; } 75% { translate: 5px 0; } }
   /* touch pedals: big stickers on the right, each pressable on its own */
   #pedals { position: fixed; z-index: 10; right: 14px; bottom: 16px; gap: 12px;
-    grid-template-columns: auto auto; grid-template-areas: ". drift" "brake gas"; align-items: end; }
+    grid-template-columns: auto auto; grid-template-areas: "boost drift" "brake gas"; align-items: end; }
   body.touch[data-mode="drive"] #pedals { display: grid; }
   .pedal { position: static; font: inherit; font-weight: 800; font-size: 1rem; text-transform: uppercase; letter-spacing: .05em;
     border-radius: 22px; cursor: pointer; touch-action: none; -webkit-user-select: none; user-select: none;
@@ -143,6 +143,8 @@
   #gas { grid-area: gas; width: 92px; height: 112px; }
   #brake { grid-area: brake; width: 84px; height: 84px; }
   #drift { grid-area: drift; width: 92px; height: 50px; font-size: .85rem; border-radius: 999px; }
+  #boost { grid-area: boost; width: 84px; height: 50px; font-size: .85rem; border-radius: 999px; }
+  #boost.on { background: var(--blue); color: #fff; }
   #gas.on { background: var(--accent); color: #fff; }
   #brake.on, #drift.on { background: var(--ink); color: var(--paper); }
   /* the stick only steers while driving: a sideways track */
@@ -168,7 +170,7 @@
 
 <div class="hud" id="title"><b>losig_home</b><div class="sub">walk around, press E on things</div></div>
 <div class="hud" id="authpill">…</div>
-<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>Esc</b> — close</span><span class="touch-only">drag anywhere — move · tap the bubble — interact</span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>C</b> — camera · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
+<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>Esc</b> — close</span><span class="touch-only">drag anywhere — move · tap the bubble — interact</span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
 <div class="hud" id="exit"><a href="/">← back to site</a></div>
 <button class="hud" id="run" type="button" aria-pressed="false"><span class="key key-only">R</span><span class="touch-only">🏃</span>run</button>
 <div class="hud" id="prompt" role="button"><span class="key"><span class="key-only">E</span><span class="touch-only">tap</span></span><span id="promptLabel"></span></div>
@@ -179,6 +181,7 @@
   <button class="hud" id="outBtn" type="button"><span class="key key-only">E</span><span class="label">get out</span><span class="hint">under 5 mph</span></button>
 </div>
 <div id="pedals">
+  <button class="hud pedal" id="boost" type="button">boost</button>
   <button class="hud pedal" id="drift" type="button">drift</button>
   <button class="hud pedal" id="brake" type="button">brake<small>reverse</small></button>
   <button class="hud pedal" id="gas" type="button">gas</button>

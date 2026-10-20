@@ -5,7 +5,8 @@ Units are feet and seconds; heading is three.js rotation.y, so forward is
 (sin h, cos h) and the car's local +X (its left, the driver's side) is
 (cos h, -sin h).
 
-- Engine: 0-60 mph in about 4.5 s, then a long pull to 160 mph. The car is
+- Engine: 0-60 mph in about 4.5 s, then a long pull to 160 mph. Boost
+  lifts the top speed to 205 mph and pulls half again as hard. The car is
   tuned for fun, not to the real RAV4.
 - Brakes, then reverse: holding brake below ~1 ft/s backs up.
 - Steering: a bicycle model. Lock narrows with speed so the front tires
@@ -27,6 +28,8 @@ export const MPH = 1.46667; // ft/s per mph
 
 export const TUNE = {
   top: 160 * MPH,       // ft/s
+  boostTop: 205 * MPH,
+  boostAccel: 1.5,
   accel: 19.8,          // ft/s^2 off the line; falls off as (v/top)^3
   curve: 3,
   brake: 45,            // ~1.4 g
@@ -69,6 +72,7 @@ export function createVehicle({ x = 0, z = 0, heading = 0 } = {}) {
     spin: 0,       // wheel roll angle
     grip: T.grip,
     drifting: false,
+    boosting: false,
     offroad: false,
     vf: 0,         // forward speed, signed
     accel: 0,      // forward acceleration this step (body pitch)
@@ -103,10 +107,11 @@ export function createVehicle({ x = 0, z = 0, heading = 0 } = {}) {
 
     // ---- longitudinal ----
     s.offroad = world.surface ? !world.surface(s.x, s.z) : false;
-    const top = s.offroad ? T.grassTop : T.top;
+    s.boosting = !!input.boost && input.throttle > 0 && !s.offroad && vf > 0;
+    const top = s.offroad ? T.grassTop : s.boosting ? T.boostTop : T.top;
     if (input.throttle > 0) {
       if (vf < -1) vf = Math.min(0, vf + T.brake * input.throttle * dt); // stop the reverse first
-      else vf += T.accel * input.throttle * (1 - Math.pow(Math.max(0, vf) / top, T.curve)) * dt;
+      else vf += T.accel * (s.boosting ? T.boostAccel : 1) * input.throttle * (1 - Math.pow(Math.max(0, vf) / top, T.curve)) * dt;
     }
     if (input.brake > 0) {
       if (vf > 1) vf = Math.max(0, vf - T.brake * input.brake * dt);
