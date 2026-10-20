@@ -122,7 +122,7 @@
   #gear:empty { display: none; }
   /* camera toggle + get out: chips at the top right */
   #drivetop { position: fixed; z-index: 10; top: 58px; right: 16px; gap: 10px; }
-  body[data-mode="drive"] #drivetop, body[data-area="outside"] #drivetop { display: flex; }
+  body[data-mode="drive"] #drivetop, body[data-area] #drivetop { display: flex; }
   body:not([data-mode="drive"]) #drivetop #outBtn { display: none; }   /* on foot it's just the camera chip */
   #drivetop button { position: static; font: inherit; font-size: .85rem; font-weight: 800; border-radius: 999px;
     padding: 5px 14px 5px 6px; cursor: pointer; display: flex; align-items: center; gap: 7px; white-space: nowrap;
@@ -223,6 +223,9 @@
     #authpill { top: auto; right: auto; bottom: 14px; left: 16px; }
     #credit { left: auto; right: 12px; transform: none; }
     #prompt { bottom: 124px; } }
+  /* the camera chip indoors (no minimap there): under the login pill, or top right on narrow phones */
+  body.touch[data-area="apartment"] #drivetop { top: 58px; }
+  @media (max-width: 600px) { body.touch[data-area="apartment"] #drivetop { top: 14px; } }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -233,7 +236,7 @@
 
 <div class="hud" id="title"><b>losig_home</b><div class="sub">walk around, press E on things</div></div>
 <div class="hud" id="authpill">…</div>
-<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>Esc</b> — close<span class="out-only"> · drag — look · <b>C</b> — camera · <b>P</b> — places</span></span><span class="touch-only">drag anywhere — move · tap the bubble — interact<span class="out-only"> · second finger — turn camera · tap the map — places</span></span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>P</b> — places · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
+<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>C</b> — camera · <b>Esc</b> — close<span class="out-only"> · drag — look · <b>P</b> — places</span></span><span class="touch-only">drag anywhere — move · tap the bubble — interact<span class="out-only"> · second finger — turn camera · tap the map — places</span></span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>P</b> — places · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
 <div class="hud" id="exit"><a href="/">← back to site</a></div>
 <button class="hud" id="run" type="button" aria-pressed="false"><span class="key key-only">R</span><span class="touch-only">🏃</span>run</button>
 <div class="hud" id="prompt" role="button"><span class="key"><span class="key-only">E</span><span class="touch-only">tap</span></span><span id="promptLabel"></span></div>

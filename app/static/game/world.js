@@ -5,12 +5,19 @@ Anime look: cel-shaded toon materials (pencil.js), ink line art (ink.js),
 cutaway walls (half height so rooms read from the follow camera). The
 building sits on a blank pale ground that fades into the sky haze; the
 front door leads to the outdoor area (outside.js). buildWorld returns the
-collider list ({x1,z1,x2,z2} footprints the player can't enter) and an
-overlay scene for un-inked sprites (room labels); buildApartment wraps
-that as an area for main.js.
+collider list ({x1,z1,x2,z2} footprints the player can't enter), an
+overlay scene for un-inked sprites (room labels), and the "upper" layer;
+buildApartment wraps that as an area for main.js.
+
+The upper layer is everything the cutaway leaves off (the walls from 4 ft
+up to the 8 ft ceiling, the tops of the doors, cabinets and mirror, and the
+ceiling itself). It shows only in the third- and first-person cameras, and
+casts no shadows, so the rooms stay lit the same either way.
 */import * as THREE from 'three';
 import { pencil, addLights, makeLabel } from './pencil.js';
-import { WALLS, WALL_T, FURNITURE, LABELS, FLOORS, INTERACTABLES, SPAWN, BOUNDS } from './apartment.js';
+import { createSolids } from './collide.js';
+import { createBatch } from './batch.js';
+import { WALLS, WALL_T, WALL_H, FURNITURE, LABELS, FLOORS, INTERACTABLES, SPAWN, BOUNDS } from './apartment.js';
 
 const WALL_C = 0xfbf5e6;
 const SKY = 0xdde9ec;
@@ -37,7 +44,14 @@ export function buildWorld(scene) {
   scene.add(ground);
 
   const colliders = [];
+  const walls = [];
   const overlay = new THREE.Scene();
+  const upper = new THREE.Group();
+  upper.visible = false;
+  scene.add(upper);
+  // the upper walls and wall-piece tops merge into one mesh (batch.js): two
+  // draw calls with the ceiling, lit like the rest but casting no shadow
+  const ub = createBatch();
 
   // ---- floors: warm light wood base + tile zones from apartment.js ----
   const base = new THREE.Mesh(new THREE.PlaneGeometry(32, 20), pencil(0xe6c99a));
@@ -61,19 +75,34 @@ export function buildWorld(scene) {
     const m = box(Math.max(w, WALL_T), CUT_H, Math.max(d, WALL_T), WALL_C);
     m.position.set((x1 + x2) / 2, CUT_H / 2, (z1 + z2) / 2);
     scene.add(m);
+    ub.box((x1 + x2) / 2, CUT_H, (z1 + z2) / 2, Math.max(w, WALL_T), WALL_H - CUT_H, Math.max(d, WALL_T), WALL_C);
     const ex = Math.max(w, WALL_T) / 2, ez = Math.max(d, WALL_T) / 2;
-    colliders.push({
+    const c = {
       x1: (x1 + x2) / 2 - ex, z1: (z1 + z2) / 2 - ez,
       x2: (x1 + x2) / 2 + ex, z2: (z1 + z2) / 2 + ez,
-    });
+    };
+    colliders.push(c);
+    walls.push(c);
   }
+  // the ceiling, facing down (away from the sun, so it glows a little to stay a soft cream)
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(32, 20), pencil(0xf4efe4, { emissive: 0x5c574d }));
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.set(16, WALL_H, 10);
+  ceiling.receiveShadow = true;
+  upper.add(ceiling);
 
   // ---- furniture ----
   for (const raw of FURNITURE) {
-    // wall-mounted pieces (doors, windows, cabinets) are clipped to the cutaway height
+    // wall-mounted pieces (doors, windows, cabinets) are clipped to the cutaway
+    // height; what's above it goes in the upper layer
     let f = raw;
     if (raw.wall) {
       const base = raw.y || 0;
+      if (base + raw.h > CUT_H) {
+        const y0 = Math.max(base, CUT_H), h = base + raw.h - y0;
+        if (raw.shape === 'cyl') ub.cyl(raw.x, y0, raw.z, raw.w / 2, h, raw.c);
+        else ub.box(raw.x, y0, raw.z, raw.w, h, raw.d, raw.c);
+      }
       if (base >= CUT_H) continue;
       f = { ...raw, h: Math.min(raw.h, CUT_H - base) };
     }
@@ -100,6 +129,8 @@ export function buildWorld(scene) {
     }
   }
 
+  upper.add(ub.build({ castShadow: false }));
+
   // ---- floating room labels ----
   for (const l of LABELS) {
     const sp = makeLabel(l.t);
@@ -107,22 +138,29 @@ export function buildWorld(scene) {
     overlay.add(sp);
   }
 
-  return { colliders, overlay };
+  return { colliders, walls, overlay, upper };
 }
 
 
 /** The apartment as an area: its own scene, colliders, door, and the dollhouse camera. */
 export function buildApartment() {
   const scene = new THREE.Scene();
-  const { colliders, overlay } = buildWorld(scene);
+  const { colliders, walls, overlay, upper } = buildWorld(scene);
   return {
     scene, overlay, colliders,
+    // walls only, for the third-person camera to pull in off (furniture it can look over)
+    world: { solids: createSolids(walls) },
+    /** Third and first person: full-height rooms with a ceiling, no floating room labels. */
+    setCloseCam(on) {
+      upper.visible = on;
+      overlay.visible = !on;
+    },
     bounds: BOUNDS,
     interactables: INTERACTABLES,
     entry: SPAWN,
     runSpeed: 11, // walks at the player's default 6.5 ft/s
     // camera offset from the player, look-at height, far plane, ink fade band
-    view: { off: [0, 14.5, 12], lookY: 2.6, far: 200, ink: [55, 110] },
+    view: { off: [0, 14.5, 12], lookY: 2.6, far: 200, ink: [55, 110], behind: { dist: 6, lift: 5.3, ahead: 5, min: 1.4 } },
     caption: 'Home · apartment',
   };
 }

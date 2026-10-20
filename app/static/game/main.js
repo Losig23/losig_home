@@ -108,13 +108,14 @@ function startBlend(dur) {
   blend.fov = camera.fov;
 }
 
-// ---- on foot outdoors: three cameras, like the car's (C or the camera chip) ----
-// overhead: the high follow camera; walking is screen-relative, and it swings
-//   around Ani (drag the mouse, or a second finger on touch).
+// ---- on foot: three cameras, like the car's (C or the camera chip) ----
+// overhead: the high follow camera; walking is screen-relative. Outdoors it
+//   swings around Ani (drag the mouse, or a second finger on touch); the
+//   apartment keeps its fixed dollhouse angle.
 // behind (third person) and eyes (first person): Ani walks the way the car
 //   drives, W/S forward and back and A/D turning (the stick: up/down, sideways),
-//   and a drag turns and looks up and down.
-// The apartment keeps its fixed dollhouse angle.
+//   and a drag turns and looks up and down. In the apartment they bring up the
+//   full-height walls and the ceiling (world.js) and hide the room labels.
 const look = { yaw: 0 };
 const FOOT = ["overhead", "behind", "eyes"];
 const FOOT_LABEL = { overhead: "overhead", behind: "third person", eyes: "first person" };
@@ -122,7 +123,7 @@ const foot = { mode: "overhead", h: 0, yaw: 0, pitch: 0 };
 const UP = THREE.Object3D.DEFAULT_UP;
 const _eu = new THREE.Euler(0, 0, 0, "YXZ");
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-const closeCam = () => areaName === "outside" && foot.mode !== "overhead";
+const closeCam = () => foot.mode !== "overhead";
 
 // a usable horizontal view on portrait phones, like the car's cameras
 function wideFov(v) {
@@ -142,17 +143,18 @@ function followPose(dt, snap = false) {
     want.near = 0.2;
     return;
   }
-  // behind Ani on a lagging yaw, pulled in by walls like the chase cam
+  // behind Ani on a lagging yaw, pulled in by walls like the chase cam (closer indoors)
+  const B = area.view.behind ?? { dist: 11, lift: 6.2, ahead: 8, min: 2.5 };
   foot.yaw += wrapA(foot.h - foot.yaw) * (snap ? 1 : 1 - Math.exp(-6 * dt));
   const sn = Math.sin(foot.yaw), cs = Math.cos(foot.yaw);
-  let dist = 11;
+  let dist = B.dist;
   const t = area.world.solids.ray(st.x, st.z, st.x - sn * dist, st.z - cs * dist, 0.8);
-  if (t < 1) dist = Math.max(2.5, dist * t - 0.5);
-  camTarget.set(st.x - sn * dist, st.y + 6.2 + (11 - dist) * 0.2, st.z - cs * dist);
+  if (t < 1) dist = Math.max(B.min, dist * t - 0.5);
+  camTarget.set(st.x - sn * dist, st.y + B.lift + (B.dist - dist) * 0.2, st.z - cs * dist);
   if (snap) followPos.copy(camTarget);
   else followPos.lerp(camTarget, 1 - Math.pow(0.0005, dt));
   want.position.copy(followPos);
-  lookAt.set(st.x + sn * 8, st.y + 4.4 + foot.pitch * 7, st.z + cs * 8);
+  lookAt.set(st.x + sn * B.ahead, st.y + 4.4 + foot.pitch * 7, st.z + cs * B.ahead);
   _m.lookAt(followPos, lookAt, UP);
   want.quaternion.setFromRotationMatrix(_m);
   want.fov = wideFov(60);
@@ -168,6 +170,7 @@ function cycleFoot() {
   const st = player.state;
   foot.h = foot.yaw = Math.atan2(st.dirX, st.dirZ);
   foot.pitch = 0;
+  area.setCloseCam?.(closeCam());
   startBlend(0.4);
   setFootLabel();
 }
@@ -256,6 +259,7 @@ function enter(name) {
   const e = area.entry;
   Object.assign(player.state, { x: e.x, z: e.z, y: 0, dirX: e.dirX ?? 0, dirZ: e.dirZ ?? -1 });
   frameCamera();
+  area.setCloseCam?.(closeCam());
   // start the camera already behind the player instead of sweeping across the map
   followPose(0, true);
   blend.t = blend.dur;
@@ -304,7 +308,7 @@ addEventListener("keydown", (e) => {
     if (k === "c") toggleCam();
     return;
   }
-  if (k === "c" && areaName === "outside") cycleFoot();
+  if (k === "c") cycleFoot();
   if (k === "r") setRunning(!running);
   if (k === "e" && !panelOpen && nearest) use(nearest);
   else if (k === "e" && panelOpen) closePanel();
@@ -401,7 +405,8 @@ function walkLikeACar(dt) {
 // swinging the camera: a mouse drag, or a second finger while the first walks
 const swing = { id: null, x: 0, y: 0 };
 renderer.domElement.addEventListener("pointerdown", (e) => {
-  if (areaName !== "outside" || driving() || swing.id !== null) return;
+  // overhead in the apartment stays put; everywhere else a drag swings or looks
+  if (driving() || swing.id !== null || (areaName !== "outside" && !closeCam())) return;
   if (e.pointerType !== "mouse" && (stick.id === null || stick.id === e.pointerId)) return;
   swing.id = e.pointerId;
   swing.x = e.clientX;
@@ -447,7 +452,7 @@ function toggleCam() {
 driveUI.cam.addEventListener("click", (e) => {
   e.currentTarget.blur();
   if (driving()) toggleCam();
-  else if (areaName === "outside") cycleFoot();
+  else cycleFoot();
 });
 driveUI.out.addEventListener("click", () => { if (driving()) getOut(); });
 
