@@ -94,16 +94,11 @@ export const UTILITY_POLES = [[-300, -203], [-120, -203], [50, -203], [220, -203
 export const STOP_SIGNS = [{ x: -151.5, z: -205, face: 0 }];  // northbound avenue at the cross street; face = heading of the sign face
 export const BUS_STOP = { x: -194, z: -279 };
 
-// ---- cars: stall indexes per row (see STALL_ROWS) ----
-export const PARKED = [
-  { row: 0, stalls: [1, 3, 4, 7, 9, 10, 17, 18, 20] },
-  { row: 1, stalls: [0, 2, 5, 6, 8, 10, 15, 16] },
-  { row: 2, stalls: [1, 3, 9] },
-];
+// ---- cars: stall indexes per row (see STALL_ROWS). Only ours park here. ----
 export const RAV4_SPOT = { row: 2, stall: 6 };
-// the garage (fleet.js): the free south-row stalls, nose-in toward our building
-// (not the one in front of the walk), and the bike on the grass by the door
-export const GARAGE = { row: 1, stalls: [3, 4, 7, 9, 11, 13, 14], bike: { x: 49, z: 54, heading: Math.PI / 2 } };
+// the garage (fleet.js): every other south-row stall, nose-in toward our
+// building (not the one in front of the walk), and the bike on the grass by the door
+export const GARAGE = { row: 1, stalls: [3, 5, 7, 9, 11, 13, 15], bike: { x: 49, z: 54, heading: Math.PI / 2 } };
 
 // ---- coming and going ----
 export const ENTRY = { x: 37.5, z: 58.5, dirX: 0, dirZ: -1 };  // on the stoop, facing the lot

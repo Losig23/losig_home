@@ -5,8 +5,7 @@ a tapered box for the glass, cylinders for wheels, thin boxes for lights.
 The hero is the RAV4: a 4th-gen (2013-2018) in silver: rounded nose with
 swept headlights, sloped rear hatch glass, black arch trim and rocker
 cladding. Real dimensions in feet: 15.1 long, 6.05 wide, 5.5 tall, 8.7 ft
-wheelbase, 28.5" tires. Parked cars around the lot reuse the same builder
-with sedan/hatch proportions and are merged into the static scenery.
+wheelbase, 28.5" tires.
 
 createCar() turns any vehicle spec (the RAV4 here, the garage in fleet.js)
 into a drivable group: a leaning chassis with its cockpit, spinning wheels,
@@ -33,26 +32,6 @@ export const RAV4 = {
   glassFront: 2.3, glassBack: 1.0, glassZ: [-6.7, 2.6],
   kind: 'suv',
 };
-
-export const PARKED = {
-  sedan: {
-    len: 15.4, w: 6.0, wheelbase: 9.1, track: 5.1, tireR: 1.08,
-    beltY: 3.0, roofY: 4.75, noseLen: 3.9, hood: 3.2,
-    glassFront: 2.5, glassBack: 2.1, glassZ: [-4.9, 2.4], kind: 'sedan',
-  },
-  hatch: {
-    len: 14.2, w: 5.8, wheelbase: 8.6, track: 5.0, tireR: 1.05,
-    beltY: 3.05, roofY: 4.9, noseLen: 3.3, hood: 3.25,
-    glassFront: 2.3, glassBack: 0.8, glassZ: [-6.0, 2.2], kind: 'hatch',
-  },
-  // a bigger, squarer three-row SUV so nothing else reads as the RAV4
-  suv: {
-    len: 16.6, w: 6.6, wheelbase: 9.9, track: 5.6, tireR: 1.25,
-    beltY: 3.6, roofY: 5.85, noseLen: 3.9, hood: 3.75,
-    glassFront: 1.9, glassBack: 0.35, glassZ: [-7.6, 2.9], kind: 'suv',
-  },
-};
-
 
 /** Draw a car body (no wheels) into a batch, in the batch's current frame. */
 export function drawBody(b, spec, color) {
@@ -114,11 +93,6 @@ export function drawBody(b, spec, color) {
   b.box(0, hood - 0.6, half - 0.1, 0.36, 0.22, 0.12, HUB);                          // emblem
   b.box(0, floor - 0.05, -half + 0.05, w - 0.8, 0.55, 0.3, TRIM);                  // rear bumper trim
   b.box(0, floor + 0.85, -half - 0.03, 1.2, 0.55, 0.1, 0xf5f2ea);                  // plate
-}
-
-/** Four wheels (tire + hub) as a batch, positioned for the spec. */
-export function drawWheels(b, spec) {
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) drawWheelAt(b, spec.tireR, 0.78, sx * spec.track / 2, spec.tireR, sz * spec.wheelbase / 2);
 }
 
 /** One wheel (tire, hub) with its axle along x, centered at (x, y, z). */
@@ -334,14 +308,4 @@ export function limb(b, a, c, r, color) {
   g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()));
   const mid = a.clone().add(c).multiplyScalar(0.5);
   b.geo(g, color, mid.x, mid.y, mid.z);
-}
-
-/** A parked car merged into static scenery. heading: radians, 0 = facing +Z. */
-export function drawParkedCar(b, kind, color, x, z, heading) {
-  const spec = PARKED[kind];
-  b.frame(x, z, heading);
-  drawBody(b, spec, color);
-  drawWheels(b, spec);
-  b.endFrame();
-  return spec;
 }

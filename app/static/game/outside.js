@@ -5,8 +5,8 @@ look (toon materials, ink lines, the same daylight and sky haze).
 Almost everything static is merged into one vertex-colored mesh
 (batch.js), so the whole site costs a handful of draw calls even with the
 ink pass rendering it twice. Things that change stay separate: the two
-apartment buildings and the yard trees (they cut away), and the RAV4
-(it'll drive in the next phase).
+apartment buildings and the yard trees (they cut away), and the RAV4 and
+the garage (fleet.js), the only cars in the lot.
 
 Dollhouse cutaway: the camera keeps the apartment's high, north-up angle,
 so a building (or tree) can end up between it and the player. When one
@@ -17,7 +17,7 @@ takes its place, the same trick that makes the apartment readable.
 import { pencil, addLights, followSun, makeMarker } from './pencil.js';
 import { createBatch, groundViews } from './batch.js';
 import { rng, prism, distToLine, inRect, drawTree, TRUNK } from './scenery.js';
-import { createCar, RAV4_SPEC, drawParkedCar } from './car.js';
+import { createCar, RAV4_SPEC } from './car.js';
 import { FLEET } from './fleet.js';
 import { createSolids, createWorld } from './collide.js';
 import { createBreakables } from './breakables.js';
@@ -47,9 +47,6 @@ const WALL_C = 0xfbf5e6;         // apartment interior walls (for the cutaway)
 const CARPET = 0xe6c99a;         // apartment floor
 const HALL = 0xcfd4d6;           // apartment tile
 const LENS = 0xfff6d8;
-// no silver: the only silver car in the lot is yours
-const CAR_COLORS = [0xf2f0eb, 0x232326, 0x8c2c2d, 0x2b4e91, 0xcdbb98, 0x4d5156, 0x355e44, 0x5a3622];
-const CAR_KINDS = ['sedan', 'suv', 'hatch', 'sedan', 'suv', 'sedan'];
 
 const CUT_H = 4;          // matches the apartment's cutaway walls
 const WALK_H = 0.25;      // sidewalks and walks are a step up from the grass
@@ -115,13 +112,6 @@ function stallSpot(rowIndex, stall) {
   const r = LOT.STALL_ROWS[rowIndex];
   const u = r.from + 4.5 + 9 * stall, across = (r.at[0] + r.at[1]) / 2;
   return r.axis === 'x' ? { x: u, z: across, heading: r.nose } : { x: across, z: u, heading: r.nose };
-}
-
-// collider footprint for a car parked at a heading that's a multiple of 90 deg
-function carBox(x, z, heading, spec) {
-  const sideways = Math.abs(Math.sin(heading)) > 0.5;
-  const hx = (sideways ? spec.len : spec.w) / 2, hz = (sideways ? spec.w : spec.len) / 2;
-  return { x1: x - hx, z1: z - hz, x2: x + hx, z2: z + hz };
 }
 
 
@@ -393,16 +383,6 @@ export function buildOutside() {
   for (const [k, sg] of LOT.STOP_SIGNS.entries()) addProp(`lot:stop${k}`, 'stop', sg.x, sg.z, sg.face);
   addProp('lot:bus', 'bus', LOT.BUS_STOP.x, LOT.BUS_STOP.z, 0);
 
-  // parked cars, merged; the RAV4 is its own object
-  let ci = 0;
-  for (const { row, stalls } of LOT.PARKED) {
-    for (const st of stalls) {
-      const { x, z, heading } = stallSpot(row, st);
-      const spec = drawParkedCar(b, CAR_KINDS[ci % CAR_KINDS.length], CAR_COLORS[(ci * 3) % CAR_COLORS.length], x, z, heading);
-      colliders.push(carBox(x, z, heading, spec));
-      ci++;
-    }
-  }
   // the vehicles: the RAV4 in its stall, the garage (fleet.js) by our building.
   // They move, so they aren't static colliders: a parked one's body circles join
   // the grid's moving solids (Ani walks around it), and each has a door to get in at
