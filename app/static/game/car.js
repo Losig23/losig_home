@@ -105,8 +105,10 @@ export function drawWheelAt(b, r, width, x, y, z, hub = HUB) {
   b.geo(cap, hub, x, y, z);
 }
 
-// where a vehicle's wheels sit: four for a car, two in line for the bike
+// where a vehicle's wheels sit: four for a car, two in line for the bike, or the spec's own
+// (the Octane's: smaller in front, not centered on its middle)
 function wheelSpots(spec) {
+  if (spec.wheels) return spec.wheels;
   if (spec.kind === 'bike') return [{ x: 0, z: spec.wheelbase / 2, front: true }, { x: 0, z: -spec.wheelbase / 2, front: false }];
   const out = [];
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) out.push({ x: sx * spec.track / 2, z: sz * spec.wheelbase / 2, front: sz > 0 });
@@ -138,11 +140,11 @@ export function createCar(spec) {
   const width = spec.tireW ?? 0.78;
   // the bike's wheels lean with it, so they ride on the chassis
   const wheelParent = spec.kind === 'bike' ? chassis : g;
-  const wheels = wheelSpots(spec).map(({ x, z, front }) => {
+  const wheels = wheelSpots(spec).map(({ x, z, front, r = spec.tireR }) => {
     const wb = createBatch();
-    drawWheelAt(wb, spec.tireR, width, 0, 0, 0, spec.hub);
+    drawWheelAt(wb, r, width, 0, 0, 0, spec.hub);
     const m = wb.build();
-    m.position.set(x, spec.tireR, z);
+    m.position.set(x, r, z);
     m.rotation.order = 'YXZ'; // roll about the axle, then steer
     m.userData.front = front;
     wheelParent.add(m);
@@ -153,13 +155,14 @@ export function createCar(spec) {
   pad.position.y = 0.03;
   pad.receiveShadow = true;
   g.add(pad);
-  const cockpit = spec.kind === 'bike' ? createBikeCockpit(spec) : createCockpit(spec);
+  const cockpit = spec.cockpit === false ? { group: new THREE.Group(), steer() {} }
+    : spec.kind === 'bike' ? createBikeCockpit(spec) : createCockpit(spec);
   cockpit.group.visible = false;
   chassis.add(cockpit.group);
 
   const pb = createBatch();
   spec.draw(pb);
-  for (const w of wheelSpots(spec)) drawWheelAt(pb, spec.tireR, width, w.x, spec.tireR, w.z, spec.hub);
+  for (const w of wheelSpots(spec)) drawWheelAt(pb, w.r ?? spec.tireR, width, w.x, w.r ?? spec.tireR, w.z, spec.hub);
   pb.flat(0, 0.03, 0, spec.w - 0.4, spec.len - 0.6, PAD);
   const parked = pb.build();
   g.add(parked);
@@ -168,7 +171,7 @@ export function createCar(spec) {
 
   const live = [chassis, pad, ...(wheelParent === g ? wheels : [])];
   const model = {
-    group: g, chassis, wheels, cockpit, rider, parked, spec,
+    group: g, chassis, wheels, cockpit, rider, parked, pad, spec,
     /** Show the driven version (true) or the merged parked one. */
     setLive(on) {
       for (const o of live) o.visible = on;

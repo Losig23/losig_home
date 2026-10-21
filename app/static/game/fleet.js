@@ -19,6 +19,7 @@ import { taperBox } from './batch.js';
 import { prism } from './scenery.js';
 import { MPH } from './vehicle.js';
 import { limb } from './car.js';
+import { OCTANE_SIZE, OCTANE_TUNE } from './octane.js';
 
 const BLACK = 0x1d1b22;
 const TRIM = 0x202224;
@@ -47,11 +48,13 @@ function hull(b, o) {
   // nose and tail slope down from the beltline
   b.geo(taperBox(w - 0.1, o.noseY - low, o.noseLen, Math.max(0, belt - o.noseY) + 0.25, 0, 0.3), color, 0, low + (o.noseY - low) / 2, nose0 + o.noseLen / 2);
   b.geo(taperBox(w - 0.1, o.tailY - low, o.tailLen, 0, Math.max(0, belt - o.tailY) + 0.2, 0.3), color, 0, low + (o.tailY - low) / 2, tail0 - o.tailLen / 2);
-  // rockers between the wheels, bumpers ahead of and behind them
+  // rockers between the wheels, bumpers ahead of and behind them (none when the wheels sit at the corners)
   const gap = o.tireR + 0.35, ax = o.wheelbase / 2;
   b.box(0, 0.55, 0, w - 0.15, low - 0.55, 2 * (ax - gap), color);
-  b.box(0, 0.6, (ax + gap + half - 0.1) / 2, w - 0.3, low - 0.6, half - 0.1 - ax - gap, color);
-  b.box(0, 0.6, -(ax + gap + half - 0.1) / 2, w - 0.3, low - 0.6, half - 0.1 - ax - gap, color);
+  if (half - 0.1 - ax - gap > 0) {
+    b.box(0, 0.6, (ax + gap + half - 0.1) / 2, w - 0.3, low - 0.6, half - 0.1 - ax - gap, color);
+    b.box(0, 0.6, -(ax + gap + half - 0.1) / 2, w - 0.3, low - 0.6, half - 0.1 - ax - gap, color);
+  }
   // glasshouse and roof
   const c = o.cabin;
   const gl = c.z1 - c.z0, gh = c.roof - belt;
@@ -273,6 +276,55 @@ function drawRider(b) {
     b.box(sx * 0.55, 1.15, -0.25, 0.3, 0.25, 0.6, 0xf2f0ea);              // sneakers
   }
 }
+
+
+// ---- the Octane: a stand-in in its proportions (no Octane model to draw from) ----
+
+// The toy hull's trim is sized for full-size cars, so the Octane is drawn
+// DRAW times over and shrunk to its hitbox's size, centered between its axles.
+const DRAW = 2.3;
+const ft = OCTANE_SIZE.ft, d = (uu) => ft(uu) * DRAW;
+const OCT = {
+  len: d(118), w: d(84.2), wheelbase: d(85), tireR: d(15), color: 0x2a6fdb,
+  low: d(24), belt: d(37), noseLen: d(30), noseY: d(31), tailLen: d(14), tailY: d(39),
+  cabin: { z0: d(-38), z1: d(12), roof: d(57), front: d(19), back: d(10), side: d(8) },
+};
+function shrink(b, k, dz) {
+  return {
+    box: (x, y, z, w, h, dd, color, ry) => b.box(x * k, y * k, (z + dz) * k, w * k, h * k, dd * k, color, ry),
+    geo: (g, color, x = 0, y = 0, z = 0, ...turn) => b.geo(g.scale(k, k, k), color, x * k, y * k, (z + dz) * k, ...turn),
+  };
+}
+function drawOctane(b0) {
+  const b = shrink(b0, 1 / DRAW, OCTANE_SIZE.mid * DRAW), o = OCT, half = o.len / 2;
+  hull(b, o);
+  // big rear haunches over the fat back tires, a ducktail spoiler, the black nose
+  for (const sx of [-1, 1]) {
+    b.box(sx * (o.w / 2 - 0.25), o.low, -o.wheelbase / 2, 0.55, o.belt - o.low + 0.15, d(36), o.color);
+    b.geo(new THREE.CylinderGeometry(0.42, 0.42, 0.18, 14).rotateX(Math.PI / 2), LAMP, sx * 1.9, d(30), half - 0.05);
+    b.box(sx * 2.1, d(33), -half + 0.05, 1.1, 0.35, 0.15, TAIL);
+  }
+  b.box(0, o.tailY, -half + 0.45, o.w - 0.5, 0.3, 0.9, BLACK);
+  b.box(0, o.tailY + 0.3, -half + 0.2, o.w - 0.2, 0.12, 0.6, o.color);
+  b.box(0, d(14), half - 0.15, o.w - 0.9, d(12), 0.3, BLACK);
+}
+
+/**
+ * The Octane (octane.js): drawn in its proportions, sized and wheeled like
+ * Rocket League's, driven by its own numbers. Not in FLEET: it only parks
+ * in the lot while a controller is connected (outside.js setOctane).
+ */
+export const OCTANE_SPEC = {
+  id: 'octane', name: 'Octane', kind: 'car', draw: drawOctane, color: OCT.color,
+  len: OCTANE_SIZE.len, w: OCTANE_SIZE.w, wheelbase: OCTANE_SIZE.wheelbase, tireR: ft(15), tireW: ft(13),
+  wheels: OCTANE_SIZE.wheels,
+  rest: OCTANE_SIZE.rest,               // the center of mass's height, which it tumbles about in the air
+  cockpit: false,                       // no seat view: Rocket League's car cam only (and the high one)
+  modes: ['chase', 'high'],
+  // a usual Rocket League camera: 270 uu back, 100 up, tipped down 3°, 110° wide
+  cam: { dist: ft(270), lift: ft(100), angle: -3 * Math.PI / 180, hfov: 110, min: 2.5 },
+  tune: OCTANE_TUNE,
+};
 
 
 // ---- the specs: model, size, seat, camera, handling ----

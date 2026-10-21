@@ -6,7 +6,8 @@ Almost everything static is merged into one vertex-colored mesh
 (batch.js), so the whole site costs a handful of draw calls even with the
 ink pass rendering it twice. Things that change stay separate: the two
 apartment buildings and the yard trees (they cut away), and the RAV4 and
-the garage (fleet.js), the only cars in the lot.
+the garage (fleet.js), the only cars in the lot. The Octane joins them only
+while a controller is connected (setOctane).
 
 Dollhouse cutaway: the camera keeps the apartment's high, north-up angle,
 so a building (or tree) can end up between it and the player. When one
@@ -18,7 +19,7 @@ import { pencil, addLights, followSun, makeMarker } from './pencil.js';
 import { createBatch, groundViews } from './batch.js';
 import { rng, prism, distToLine, inRect, drawTree, TRUNK } from './scenery.js';
 import { createCar, RAV4_SPEC } from './car.js';
-import { FLEET } from './fleet.js';
+import { FLEET, OCTANE_SPEC } from './fleet.js';
 import { createSolids, createWorld } from './collide.js';
 import { createBreakables } from './breakables.js';
 import { createTown } from './chunks.js';
@@ -412,6 +413,39 @@ export function buildOutside() {
     addCar(spec, at.x, at.z, at.heading);
   }
 
+  // the Octane (octane.js) parks past the garage, but only while a controller is
+  // connected: main.js calls setOctane as one comes and goes. It's built the first
+  // time; while it's away it isn't drawn, has no door and blocks nothing. It comes
+  // back where it was left, or to its stall if something's in the way there.
+  let octane = null;
+  function setOctane(on) {
+    if (on && !octane) {
+      const at = stallSpot(LOT.GARAGE.row, LOT.GARAGE.octane);
+      octane = addCar(OCTANE_SPEC, at.x, at.z, at.heading);
+      octane.home = at;
+      octane.away = true;
+    }
+    if (!octane || octane.away === !on) return;
+    octane.away = !on;
+    octane.model.group.visible = on;
+    const doors = area.interactables, i = doors.indexOf(octane.door);
+    if (!on) {
+      if (i >= 0) doors.splice(i, 1);
+      return;
+    }
+    // in the way: anything solid, a parked car, or the one being driven (the RAV4 that
+    // took over from it stops right where it was)
+    const v = octane.vehicle;
+    const driven = area.car.parked ? [] : area.car.vehicle.circles();
+    const blocked = v.circles().some((c) => solids.hit(c.x, c.z, c.r)
+      || driven.some((k) => (c.x - k.x) ** 2 + (c.z - k.z) ** 2 < (c.r + k.r) ** 2));
+    if (blocked) v.place(octane.home.x, octane.home.z, octane.home.heading);
+    // parked on its wheels, however it was last drawn (it may have gone mid-jump)
+    octane.model.group.position.set(v.s.x, heightAt(v.s.x, v.s.z), v.s.z);
+    octane.model.group.rotation.set(0, v.s.h, 0);
+    if (i < 0) doors.push(octane.door);
+  }
+
   // static scenery in 400 ft tiles so off-screen tiles (and ones outside the
   // sun's shadow box) are culled; flat ground as one layered mesh
   scene.add(b.build({ tile: 400 }));
@@ -500,7 +534,7 @@ export function buildOutside() {
     // parked vehicles: Ani collides with them and gets in at the driver's door
     circles.length = 0;
     for (const c of cars) {
-      if (!c.parked) continue;
+      if (!c.parked || c.away) continue;
       for (const k of c.vehicle.circles(c.circles)) circles.push(k);
       const v = c.vehicle.s, side = c.model.spec.w / 2 + 1.5;
       c.door.x = v.x + Math.cos(v.h) * side + Math.sin(v.h) * 0.6;
@@ -536,7 +570,10 @@ export function buildOutside() {
     solids,
     world,
     car: rav4,          // the vehicle in use (drive.js switches it), the RAV4 to start
+    rav4,
     cars,
+    get octane() { return octane; },
+    setOctane,
     town: townChunks,
     // on foot you can wander a little way into the fog bank (widened to the town once it's known)
     bounds: { x1: R.x1 - 150, z1: R.z1 - 150, x2: R.x2 + 150, z2: R.z2 + 150 },
