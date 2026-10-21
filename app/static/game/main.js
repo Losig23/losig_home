@@ -20,12 +20,18 @@ the Places list opens from P or the minimap, and fast travel is a travel()
 within the area: fade out, move the car and Ani, stream the chunks in
 behind the black, fade back. Phones also scale their pixel ratio to hold
 the frame rate (dynamic resolution), and ?stats shows the frame budget.
+
+A controller (gamepad.js, read every frame) brings the Octane into the lot
+for as long as it's connected; if it goes while the Octane is the car in
+use, the RAV4 takes over. ?pad shows the controller's raw values and what
+they map to.
 */import * as THREE from 'three';
 import { buildApartment } from './world.js';
 import { createInk } from './ink.js';
 import { LABEL_FONT } from './pencil.js';
 import { createPlayer } from './player.js';
 import { renderPanel, bindPanel } from './panels.js';
+import { createPad } from './gamepad.js';
 
 const container = document.getElementById("scene");
 const promptEl = document.getElementById("prompt");
@@ -73,7 +79,8 @@ const loaders = {
   outside: async () => {
     const [{ buildOutside }, { createDriver }, places] = await Promise.all([import('./outside.js'), import('./drive.js'), import('./places.js')]);
     const a = buildOutside();
-    a.driver = createDriver({ area: a, keys, stick, ui: driveUI, player });
+    a.driver = createDriver({ area: a, keys, stick, ui: driveUI, player, pad });
+    a.setOctane(pad.connected);
     a.places = places;
     a.guide = places.createGuide({
       area: a, camera,
@@ -456,6 +463,20 @@ driveUI.cam.addEventListener("click", (e) => {
 });
 driveUI.out.addEventListener("click", () => { if (driving()) getOut(); });
 
+// ---- controllers: the Octane is in the lot only while one is connected ----
+const pad = createPad({ onChange: (on) => setOctane(on) });
+function setOctane(on) {
+  const a = areas.outside;
+  if (!a) return; // the lot isn't built yet; its loader asks the pad
+  // leaving while it's the car in use: the RAV4 takes over, stopped where the Octane
+  // was (on foot, it just becomes the car fast travel takes)
+  if (!on && a.driver.car === a.octane) {
+    a.driver.handOff(a.rav4);
+    if (a.driver.active) startBlend(0.4);
+  }
+  a.setOctane(on);
+}
+
 // ---- auth: one private probe; 401 means logged out ----
 let authed = false;
 fetch("/api/gaming/recent").then((r) => {
@@ -678,6 +699,35 @@ if (stats) {
   }, 500);
 }
 
+// ?pad: the controller's raw axes and buttons beside what the Octane reads from them,
+// to check MAPPING's indices against a real pad, and the Octane's own state
+const padView = new URLSearchParams(location.search).has("pad") ? Object.assign(document.createElement("pre"), { id: "padview", className: "hud" }) : null;
+if (padView) {
+  const { UU } = await import("./octane.js");
+  document.body.append(padView);
+  const f = (v) => (v < 0 ? "" : "+") + v.toFixed(2);
+  const on = (b) => (b ? "on" : "–");
+  setInterval(() => {
+    const gp = pad.raw, c = pad.controls, out = [];
+    if (!gp) out.push("no controller (plug one in and press a button)");
+    else {
+      out.push(`pad ${gp.index} · ${gp.id} · ${gp.mapping || "non-standard mapping"}`);
+      out.push(`axes     ${gp.axes.map((v, i) => `${i}:${f(v)}`).join("  ")}`);
+      const held = gp.buttons.map((b, i) => (b.pressed || b.value > 0.01 ? `${i}:${b.value > 0 && b.value < 1 ? b.value.toFixed(2) : "on"}` : "")).filter(Boolean);
+      out.push(`buttons  ${held.join("  ") || "–"}`);
+    }
+    out.push(`mapped   throttle ${c.throttle.toFixed(2)}  reverse ${c.brake.toFixed(2)}  steer ${f(c.steer)}  pitch ${f(c.pitch)}  yaw ${f(c.yaw)}  roll ${f(c.roll)}`);
+    out.push(`         jump ${on(c.jump)}  boost ${on(c.boost)}  powerslide / free air roll ${on(c.handbrake)}`);
+    const o = areas.outside?.octane;
+    if (o && !o.away) {
+      const s = o.vehicle.s, sp = Math.hypot(s.vx, s.vy, s.vz) / UU;
+      out.push(`octane   ${o === areas.outside.driver.car && driving() ? "driving" : "parked"} · ${s.air ? "air" : "ground"} · ${Math.round(sp)} uu/s${sp >= 2200 ? " supersonic" : ""}`
+        + ` · jumped ${on(s.jumped)} · double ${on(s.doubled)} · dodge ${on(s.flipped)}${s.flipping ? " (spinning)" : ""} · ${Math.round(s.y / UU)} uu up`);
+    } else out.push("octane   not in the lot");
+    padView.textContent = out.join("\n");
+  }, 100);
+}
+
 // ---- loop ----
 const clock = new THREE.Clock();
 let firstFrame = true;
@@ -685,6 +735,7 @@ let firstFrame = true;
 function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.05);
+  pad.poll();
   const inCar = driving();
 
   if (!panelOpen && !travelling && !inCar) {

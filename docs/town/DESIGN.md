@@ -240,12 +240,63 @@ numbers only, and that the Places carry only the generic names.
   | Rolls-Royce | 5.2 s | 155 (180) | 19 ft, heavy, soft |
   | Porsche 911 | 3.0 s | 190 (220) | |
   | Cybertruck | 2.6 s | 130 (160) | 18.6 ft, heavy, high seat |
+  | Octane | – | 32 (51) | controller only; Rocket League's numbers (below) |
 
   `car.js` `createCar` builds any spec twice: driven (a chassis with the
   body, cockpit and the bike's rider that leans, and wheels that spin and
   steer) and parked (all of it merged into one mesh), so the lot with all
   nine parked costs 33 draw calls in the color pass and 28 in the shadow
   pass.
+- **The Octane** (`octane.js`, `gamepad.js`): Rocket League's default car,
+  only while a controller is connected. It parks in the stall past the
+  garage when the first pad arrives (`gamepadconnected`, plus
+  `navigator.getGamepads()` every frame) and leaves when the last one goes;
+  if it's the car in use then, the RAV4 takes its place on the road,
+  stopped, with every input let go. Without a pad it isn't built at all.
+  - **True to Rocket League, at its size.** Every number is the game's
+    own in unreal units (1 uu = 1 cm), converted once (`UU`): the hitbox
+    (118.01 × 84.20 × 36.16, centered 13.88 uu ahead of the center of mass),
+    the wheels, top speed 2300 uu/s (51 mph; 1410 on throttle alone), the
+    throttle curve, braking 3500 and coasting 525 uu/s², boost 991.67 (air
+    1058.33), the steering and powerslide curves, gravity 650, the jump
+    (291.67 kick, 1458.33 held up to 0.2 s), the double jump and dodges
+    (500 uu/s, side ×1.9 and back ×2.5 at top speed, the float), and air
+    control (pitch 12.46, yaw 9.11, roll 38.35 rad/s², capped at 5.5 rad/s).
+    Sources: RocketSim's constants, Psyonix's hitbox presets and RLBot's
+    game values. So it's a car 3.9 ft long in a 1:1 town, as small as
+    Rocket League's cars are next to their goals; `UU` is the one number
+    to change to scale it up.
+  - **One engine.** `vehicle.js` gains an opt-in `tune.rl`: on the ground
+    its throttle, brakes and steering lock replace the arcade ones while
+    the bicycle model, grip, drift and collisions stay shared; in the air
+    it gets a height, a full orientation and the jump/dodge/air-control
+    rules, ticking at Rocket League's 120 Hz. The other vehicles have no
+    `rl` and run exactly as before. Solids still have no height, so in the
+    air it collides with footprints as on the ground; it lands on its
+    wheels (a landing on its side or roof rights itself and loses half its
+    speed: there's no turtling on a flat world).
+  - **Hitbox:** two circles as wide as the box down its middle and sixteen
+    4 uu circles around its edges and corners, so walls and poles meet the
+    box's flat faces (a stop sign stops it with its center exactly 2.74 ft
+    away: nose plus the sign's half-width).
+  - **Breaks poles only** (`breaks: ['pole']`): utility poles snap off the
+    usual way (above 8 mph, 15% of its speed); lot lights, signal masts,
+    stop signs, the bus stop and everything else stay solid.
+  - **Controller** (`gamepad.js` `MAPPING`, W3C standard indices on a
+    PlayStation-style pad): R2/L2 analog throttle and reverse, left stick
+    steer (in the air pitch, stick forward noses down, and yaw), ✕ jump /
+    double jump / dodge, R1 boost (infinite, no meter), L1 powerslide and
+    free air roll, □/○ air roll left/right; triangle and the right stick
+    unbound (the driving cameras have no look control). Radial stick
+    deadzone 0.15, trigger deadzone 0.05. The keys and pedals still drive
+    it on the ground. `/game?pad` shows the pad's raw axes and buttons, the
+    mapped controls and the Octane's state, to check the indices on a real
+    pad (some browsers report a non-standard order).
+  - **Look and cameras:** a stand-in, the garage's toy hull in the
+    Octane's proportions (drawn 2.3× and shrunk to the hitbox), its wheels
+    where Rocket League's are (12.5 uu front, 15 rear). No cockpit:
+    Rocket League's car cam (270 uu back, 100 up, tipped 3°, 110° wide)
+    and the high cam; both ride up with it in the air without tilting.
 - **Touch driving:** a floating steer stick (sideways only) that starts on
   the left 62% of the screen; Gas, Brake/Reverse, Drift and Boost stickers
   on the right, each tracking its own finger so any combination can be
@@ -406,6 +457,8 @@ numbers only, and that the Places carry only the generic names.
      for a server that's waking up).
    - Then: the twenty filler cars removed, so only ours park in the lot,
      and the three on-foot cameras in the apartment too.
+   - And the Octane: Rocket League's car, built from its numbers, for
+     whoever plugs in a controller.
 5. **Life in town** (next): traffic and pedestrians on the street graph,
    signals that cycle, time of day with lights, and a way home from the
    lot to the apartment door.

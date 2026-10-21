@@ -219,6 +219,14 @@
   #panelBody p.arrive { font-weight: 800; }
   #stats { bottom: 4px; left: 50%; transform: translateX(-50%); font-size: .7rem; padding: 2px 10px; border-radius: 8px;
     border-width: 2px; white-space: nowrap; z-index: 40; }
+  /* ?pad: the controller's raw values and mapped controls */
+  #padview { top: 70px; left: 16px; margin: 0; max-width: calc(100vw - 40px); overflow: hidden; z-index: 40;
+    font: 600 .7rem/1.45 ui-monospace, Menlo, monospace; padding: 6px 10px; border-radius: 10px; border-width: 2px;
+    pointer-events: none; opacity: .92; }
+  /* driving the Octane: its controller's layout replaces the keys in the help line */
+  #help .pad-only { display: none; }
+  body[data-car="octane"] #help .pad-only { display: inline; }
+  body[data-car="octane"] #help .drive-only .key-only, body[data-car="octane"] #help .drive-only .touch-only { display: none; }
   @media (max-width: 600px) { #title .sub, #help { display: none; }
     #authpill { top: auto; right: auto; bottom: 14px; left: 16px; }
     #credit { left: auto; right: 12px; transform: none; }
@@ -236,7 +244,7 @@
 
 <div class="hud" id="title"><b>losig_home</b><div class="sub">walk around, press E on things</div></div>
 <div class="hud" id="authpill">…</div>
-<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>C</b> — camera · <b>Esc</b> — close<span class="out-only"> · drag — look · <b>P</b> — places</span></span><span class="touch-only">drag anywhere — move · tap the bubble — interact<span class="out-only"> · second finger — turn camera · tap the map — places</span></span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>P</b> — places · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span></span></div>
+<div class="hud" id="help"><span class="foot-only"><span class="key-only">WASD / arrows — move · <b>R</b> — run · <b>E</b> — interact · <b>C</b> — camera · <b>Esc</b> — close<span class="out-only"> · drag — look · <b>P</b> — places</span></span><span class="touch-only">drag anywhere — move · tap the bubble — interact<span class="out-only"> · second finger — turn camera · tap the map — places</span></span></span><span class="drive-only"><span class="key-only"><b>W</b>/<b>S</b> — gas · brake/reverse · <b>A</b>/<b>D</b> — steer · <b>Space</b> — drift · <b>Shift</b> — boost · <b>C</b> — camera · <b>P</b> — places · <b>E</b> — get out</span><span class="touch-only">left thumb — steer · stickers — pedals</span><span class="pad-only"><b>R2</b>/<b>L2</b> — gas · reverse · <b>stick</b> — steer, pitch/yaw · <b>✕</b> — jump · <b>R1</b> — boost · <b>L1</b> — powerslide · free air roll · <b>□</b>/<b>○</b> — air roll · <b>E</b> — get out</span></span></div>
 <div class="hud" id="exit"><a href="/">← back to site</a></div>
 <button class="hud" id="run" type="button" aria-pressed="false"><span class="key key-only">R</span><span class="touch-only">🏃</span>run</button>
 <div class="hud" id="prompt" role="button"><span class="key"><span class="key-only">E</span><span class="touch-only">tap</span></span><span id="promptLabel"></span></div>

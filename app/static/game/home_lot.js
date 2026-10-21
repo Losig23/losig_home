@@ -97,8 +97,9 @@ export const BUS_STOP = { x: -194, z: -279 };
 // ---- cars: stall indexes per row (see STALL_ROWS). Only ours park here. ----
 export const RAV4_SPOT = { row: 2, stall: 6 };
 // the garage (fleet.js): every other south-row stall, nose-in toward our
-// building (not the one in front of the walk), and the bike on the grass by the door
-export const GARAGE = { row: 1, stalls: [3, 5, 7, 9, 11, 13, 15], bike: { x: 49, z: 54, heading: Math.PI / 2 } };
+// building (not the one in front of the walk), and the bike on the grass by the door;
+// the Octane takes the next one along while a controller is connected
+export const GARAGE = { row: 1, stalls: [3, 5, 7, 9, 11, 13, 15], octane: 17, bike: { x: 49, z: 54, heading: Math.PI / 2 } };
 
 // ---- coming and going ----
 export const ENTRY = { x: 37.5, z: 58.5, dirX: 0, dirZ: -1 };  // on the stoop, facing the lot

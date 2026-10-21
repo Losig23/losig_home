@@ -45,7 +45,7 @@ def test_game_static_modules_exist(anon_client):
     for mod in ("main.js", "apartment.js", "world.js", "player.js", "panels.js", "pencil.js", "ink.js",
                 "outside.js", "home_lot.js", "car.js", "batch.js", "nearby.js", "town.js", "scenery.js",
                 "collide.js", "vehicle.js", "drive.js", "chunks.js", "breakables.js",
-                "roads.js", "places.js", "minimap.js", "route.js", "fleet.js"):
+                "roads.js", "places.js", "minimap.js", "route.js", "fleet.js", "octane.js", "gamepad.js"):
         r = anon_client.get(f"/static/game/{mod}")
         assert r.status_code == 200, mod
         assert b"import" in r.data or b"export" in r.data, mod

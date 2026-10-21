@@ -25,9 +25,16 @@ fixed-step physics loop, the three driving cameras and the dashboard HUD.
   harder; the cameras widen a little while it's on.
 - teleport() is fast travel's half: the last vehicle you drove (and Ani,
   when walking) lands on a parking spot without any interpolation smear.
+- The Octane (octane.js) takes a controller in Rocket League's layout
+  (gamepad.js) on top of the keys; in the air it's drawn with its whole
+  orientation, turning about its center of mass, and settles back onto its
+  wheels when it lands. It has Rocket League's car cam (and the high one),
+  no cockpit. handOff() swaps the car in use for another, stopped in the
+  same spot, when the Octane's controller goes away.
 */
 import * as THREE from 'three';
 import { MPH } from './vehicle.js';
+import { NEUTRAL } from './gamepad.js';
 
 const STEP = 1 / 60;
 const EXIT_MPH = 5;
@@ -39,13 +46,16 @@ const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /**
  * area: the outdoors (car, world, heightAt); keys: main's key map;
- * stick: the touch stick ({x} in -1..1); ui: HUD elements; player: Ani.
+ * stick: the touch stick ({x} in -1..1); ui: HUD elements; player: Ani;
+ * pad: the controller (gamepad.js), read by the Octane.
  */
-export function createDriver({ area, keys, stick, ui, player }) {
+export function createDriver({ area, keys, stick, ui, player, pad = null }) {
   // the vehicle in use: the last one driven (fast travel takes it along)
   let car, model, vehicle, s, spec;
-  const prev = { x: 0, z: 0, h: 0 };
-  const pose = { x: 0, z: 0, h: 0 };
+  // y: how far the Octane's center of mass is off the ground (0 for everything else)
+  const prev = { x: 0, z: 0, h: 0, y: 0 };
+  const pose = { x: 0, z: 0, h: 0, y: 0 };
+  const prevQ = new THREE.Quaternion(), poseQ = new THREE.Quaternion();
   let acc = 0;
   let active = false;
   let mode = null;              // first time in: cockpit, or chase on a portrait phone
@@ -56,6 +66,10 @@ export function createDriver({ area, keys, stick, ui, player }) {
   const chase = { yaw: 0, dist: 22, lift: 7.5 };
   const MODES = ['cockpit', 'chase', 'high'];
   const LABEL = { cockpit: 'cockpit', chase: 'chase cam', high: 'high cam' };
+  // a vehicle may offer fewer cameras (the Octane has no cockpit); the last one picked
+  // stays picked for the next vehicle that has it
+  const modes = () => spec.modes ?? MODES;
+  const view = () => (modes().includes(mode) ? mode : modes()[0]);
 
   function use(c) {
     car = c;
@@ -63,13 +77,23 @@ export function createDriver({ area, keys, stick, ui, player }) {
     ({ model, vehicle } = c);
     s = vehicle.s;
     spec = model.spec;
-    Object.assign(prev, { x: s.x, z: s.z, h: s.h });
-    Object.assign(pose, prev);
+    snap();
     chase.yaw = s.h;
     chase.dist = spec.cam?.dist ?? 22;
     chase.lift = spec.cam?.lift ?? 7.5;
   }
-  use(area.car);
+
+  // draw it exactly where it is, no interpolation
+  function snap() {
+    Object.assign(prev, { x: s.x, z: s.z, h: s.h, y: s.y ?? 0 });
+    Object.assign(pose, prev);
+    if (s.q) {
+      prevQ.fromArray(s.q);
+      poseQ.copy(prevQ);
+    }
+    settleQ.identity();
+    wasAir = false;
+  }
 
   // ---- touch pedals: each sticker remembers which fingers are on it ----
   const pedals = { gas: new Set(), brake: new Set(), drift: new Set(), boost: new Set() };
@@ -96,12 +120,24 @@ export function createDriver({ area, keys, stick, ui, player }) {
   function input() {
     const k = keys;
     const steer = ((k.d || k.arrowright) ? 1 : 0) - ((k.a || k.arrowleft) ? 1 : 0);
-    return {
+    const keyed = {
       throttle: (k.w || k.arrowup || pedals.gas.size) ? 1 : 0,
       brake: (k.s || k.arrowdown || pedals.brake.size) ? 1 : 0,
       steer: steer || stick.x,
       handbrake: !!(k[' '] || pedals.drift.size),
       boost: !!(k.shift || pedals.boost.size),
+    };
+    if (!vehicle.tune.rl) return keyed;
+    // the Octane: the controller in Rocket League's layout (analog triggers, the stick, and
+    // the air controls); the keys and pedals still drive it on the ground
+    const p = pad?.controls ?? NEUTRAL;
+    return {
+      throttle: Math.max(keyed.throttle, p.throttle),
+      brake: Math.max(keyed.brake, p.brake),
+      steer: keyed.steer || p.steer,
+      handbrake: keyed.handbrake || p.handbrake,
+      boost: keyed.boost || p.boost,
+      jump: p.jump, pitch: p.pitch, yaw: p.yaw, roll: p.roll,
     };
   }
 
@@ -139,6 +175,30 @@ export function createDriver({ area, keys, stick, ui, player }) {
       if (w.userData.front) w.rotation.y = -s.wheel;
     }
     model.cockpit.steer(s.steer);
+    if (s.q) tumble(dt);
+  }
+
+  // the Octane: in the air, all of its orientation, turning about its center of mass
+  // (spec.rest up from the ground); landed, it eases from however it came down back
+  // onto its wheels instead of snapping flat
+  const settleQ = new THREE.Quaternion(), _qh = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qs = new THREE.Quaternion();
+  const _Y = new THREE.Vector3(0, 1, 0), _com = new THREE.Vector3();
+  let wasAir = false;
+  function tumble(dt) {
+    const q = model.group.quaternion;
+    _qh.setFromAxisAngle(_Y, pose.h);
+    if (s.air) {
+      q.copy(poseQ);
+      wasAir = true;
+    } else {
+      if (wasAir) settleQ.copy(_qh).invert().multiply(poseQ);
+      wasAir = false;
+      settleQ.slerp(_qi, ease(12, dt));
+      q.copy(_qh).multiply(settleQ);
+    }
+    _com.set(0, spec.rest, 0).applyQuaternion(q);
+    model.group.position.set(pose.x - _com.x, y + pose.y + spec.rest - _com.y, pose.z - _com.z);
+    if (active) model.pad.visible = pose.y < 0.3;
   }
 
   function update(dt) {
@@ -164,6 +224,10 @@ export function createDriver({ area, keys, stick, ui, player }) {
     acc += dt;
     while (acc >= STEP) {
       prev.x = s.x; prev.z = s.z; prev.h = s.h;
+      if (s.q) {
+        prev.y = s.y;
+        prevQ.fromArray(s.q);
+      }
       vehicle.step(STEP, inp, area.world);
       if (s.impact > 4) trauma = Math.min(1, trauma + s.impact / 40);
       acc -= STEP;
@@ -172,6 +236,10 @@ export function createDriver({ area, keys, stick, ui, player }) {
     pose.x = prev.x + (s.x - prev.x) * a;
     pose.z = prev.z + (s.z - prev.z) * a;
     pose.h = prev.h + (s.h - prev.h) * a;
+    if (s.q) {
+      pose.y = prev.y + (s.y - prev.y) * a;
+      poseQ.slerpQuaternions(prevQ, _qs.fromArray(s.q), a);
+    }
     y += (area.heightAt(pose.x, pose.z) - y) * ease(22, dt);
     trauma = Math.max(0, trauma - dt * 1.4);
     boostK += ((s.boosting ? 1 : 0) - boostK) * ease(3, dt);
@@ -219,6 +287,8 @@ export function createDriver({ area, keys, stick, ui, player }) {
     const base = spec.cam?.dist ?? 22, lift0 = spec.cam?.lift ?? 7.5;
     // yaw trails the heading (swings wide in drifts); reversing keeps it behind
     chase.yaw += wrap(pose.h - chase.yaw) * ease(s.drifting ? 2.2 : 3.6, dt);
+    if (spec.cam?.hfov && !high) return carCam(out, aspect, spec.cam);
+    const cy = y + pose.y;
     const want = (high ? base * 1.6 : base) + speed * 0.03 + clamp(s.accel, -30, 30) * 0.05;
     chase.dist += (want - chase.dist) * ease(3, dt);
     chase.lift += ((high ? lift0 * 2.4 : lift0) + speed * 0.008 - chase.lift) * ease(3, dt);
@@ -227,18 +297,35 @@ export function createDriver({ area, keys, stick, ui, player }) {
     // a wall between the car and the camera pulls it in (instead of the cutaway)
     const ex = pose.x - sn * dist, ez = pose.z - cs * dist;
     const t = area.world.solids.ray(pose.x, pose.z, ex, ez, 1.2);
-    if (t < 1) dist = Math.max(9, dist * t - 0.8);
+    if (t < 1) dist = Math.max(spec.cam?.min ?? 9, dist * t - 0.8);
     // pulled in, it rises to look down over the roof
-    out.position.set(pose.x - sn * dist, y + chase.lift * (1.5 - 0.5 * dist / chase.dist), pose.z - cs * dist);
+    out.position.set(pose.x - sn * dist, cy + chase.lift * (1.5 - 0.5 * dist / chase.dist), pose.z - cs * dist);
     const r = shake(out);
     // pulled in tight, look further up the road rather than down at the roof
     const ahead = (high ? 22 : 6) + 26 * (1 - dist / chase.dist);
-    look.set(pose.x + Math.sin(pose.h) * ahead, y + (high ? 2.4 : 3.6), pose.z + Math.cos(pose.h) * ahead);
+    look.set(pose.x + Math.sin(pose.h) * ahead, cy + (high ? 2.4 : 3.6), pose.z + Math.cos(pose.h) * ahead);
     _m.lookAt(out.position, look, THREE.Object3D.DEFAULT_UP);
     out.quaternion.setFromRotationMatrix(_m);
     if (r) out.quaternion.multiply(_q.setFromAxisAngle(_z, r));
     out.fov = fovFor((high ? 54 : 58) + 16 * Math.min(1, speed / (130 * MPH)) + 6 * boostK, aspect);
     out.near = 0.5;
+  }
+
+  // Rocket League's car cam (the Octane): a set distance behind and height above on the
+  // trailing yaw, tipped down a few degrees, a fixed horizontal FOV; it rides up with the
+  // car in the air but never tilts with it. A wall behind pulls it in like the chase cam.
+  function carCam(out, aspect, cam) {
+    const sn = Math.sin(chase.yaw), cs = Math.cos(chase.yaw);
+    let dist = cam.dist;
+    const t = area.world.solids.ray(pose.x, pose.z, pose.x - sn * dist, pose.z - cs * dist, 0.6);
+    if (t < 1) dist = Math.max(cam.min, dist * t - 0.3);
+    out.position.set(pose.x - sn * dist, y + pose.y + cam.lift, pose.z - cs * dist);
+    const r = shake(out);
+    _e.set(cam.angle, chase.yaw + Math.PI, r);
+    out.quaternion.setFromEuler(_e);
+    const h = THREE.MathUtils.degToRad(cam.hfov);
+    out.fov = Math.min(100, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(h / 2) / aspect)));
+    out.near = 0.1;
   }
 
   // keep a usable horizontal view on portrait phones
@@ -250,8 +337,9 @@ export function createDriver({ area, keys, stick, ui, player }) {
   }
 
   function cameraPose(out, dt, aspect) {
-    if (mode === 'cockpit') cockpitPose(out, aspect);
-    else chasePose(out, dt, aspect, mode === 'high');
+    const m = view();
+    if (m === 'cockpit') cockpitPose(out, aspect);
+    else chasePose(out, dt, aspect, m === 'high');
   }
 
   // ---- HUD ----
@@ -274,17 +362,23 @@ export function createDriver({ area, keys, stick, ui, player }) {
 
   function setMode(m) {
     mode = m;
-    model.cockpit.group.visible = active && mode === 'cockpit';
+    const v = view(), list = modes();
+    model.cockpit.group.visible = active && v === 'cockpit';
     // in first person on the bike, the rider is you
-    if (model.rider) model.rider.visible = active && mode !== 'cockpit';
-    ui.cam.querySelector('.label').textContent = LABEL[MODES[(MODES.indexOf(mode) + 1) % MODES.length]];
+    if (model.rider) model.rider.visible = active && v !== 'cockpit';
+    ui.cam.querySelector('.label').textContent = LABEL[list[(list.indexOf(v) + 1) % list.length]];
+    if (active) ui.root.dataset.car = spec.id;
+    else delete ui.root.dataset.car;
   }
+
+  use(area.car);
 
   return {
     get active() { return active; },
-    get mode() { return mode; },
+    get mode() { return view(); },
     get car() { return car; },
-    get canExit() { return Math.abs(s.vf) < EXIT_MPH * MPH; },
+    // not mid-air: Ani would step out onto nothing
+    get canExit() { return Math.abs(s.vf) < EXIT_MPH * MPH && !s.air; },
     get speed() { return Math.abs(s.vf); },
     pose,
     update,
@@ -320,8 +414,7 @@ export function createDriver({ area, keys, stick, ui, player }) {
         return false;
       }
       vehicle.stop();
-      Object.assign(prev, { x: s.x, z: s.z, h: s.h });
-      Object.assign(pose, prev);
+      snap();
       acc = 0;
       active = false;
       releasePedals();
@@ -337,14 +430,42 @@ export function createDriver({ area, keys, stick, ui, player }) {
     },
 
     toggleCam() {
-      if (active) setMode(MODES[(MODES.indexOf(mode) + 1) % MODES.length]);
+      const list = modes();
+      if (active) setMode(list[(list.indexOf(view()) + 1) % list.length]);
+    },
+
+    /**
+     * The vehicle in use is going away (the Octane, when its controller
+     * does): switch to c. Driving, c takes its place on the road, stopped,
+     * with every control let go; on foot, c is just the one fast travel takes.
+     */
+    handOff(c) {
+      if (c === car) return;
+      if (!active) {
+        use(c);
+        return;
+      }
+      const { x, z, h } = s;
+      vehicle.stop();
+      car.parked = true;
+      model.cockpit.group.visible = false;
+      model.setLive(false);
+      releasePedals();
+      use(c);
+      vehicle.place(x, z, h);
+      snap();
+      acc = 0; enterT = 0; trauma = 0;
+      y = area.heightAt(x, z);
+      car.parked = false;
+      model.setLive(true);
+      setMode(mode);
+      drawCar(1);
     },
 
     /** Fast travel: put the vehicle on (x, z) facing h, stopped; a walking Ani lands at its door. */
     teleport(x, z, h) {
       vehicle.place(x, z, h);
-      Object.assign(prev, { x, z, h });
-      Object.assign(pose, prev);
+      snap();
       acc = 0; trauma = 0;
       chase.yaw = h;
       y = area.heightAt(x, z);
